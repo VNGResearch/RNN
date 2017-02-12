@@ -39,13 +39,3 @@ class LSTMEncDec:
         self.model = Model(input=input_layer, output=output_layer)
         self.model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
         self.model.build(sequence_len)
-
-    def decode(self, vector, limit):
-        decoded = []
-        word_vec = vector
-        while word_vec != self.embed[self.word_to_index[SENTENCE_END_TOKEN]] and len(decoded) < limit:
-            word_vec = self.decoder.predict(word_vec)
-
-            decoded.append(word_vec)
-
-        return np.asarray(decoded)
