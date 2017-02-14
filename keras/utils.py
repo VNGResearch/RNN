@@ -2,12 +2,19 @@ import numpy as np
 import datetime
 import pickle
 from lstm_keras import *
-from keras.callbacks import Callback
+
 
 SENTENCE_END_TOKEN = '$SENTENCE_END'
 UNKNOWN_TOKEN = '$UNKNOWN'
 MASK_TOKEN = '<MASK>'
 DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
+
+
+def log(string=''):
+    f = open(DIRECTORY + '/.log', mode='at')
+    print(string)
+    print(string, file=f)
+    f.close()
 
 
 def nearest_vector(array, value):
@@ -53,24 +60,3 @@ def load_model(directory):
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
         exit()
-
-
-def log(string=''):
-    f = open(DIRECTORY + '/.log', mode='at')
-    print(string)
-    print(string, file=f)
-    f.close()
-
-
-class EncDecCallback(Callback):
-    def __init__(self, enc_dec, queries=None):
-        super()
-        self.enc_dec = enc_dec
-        self.queries = queries
-
-    def on_epoch_end(self, epoch, logs={}):
-        log('\nEnd of epoch %s --- Loss: %f', epoch, logs['val_loss'])
-        save_model(self.enc_dec)
-        for query in self.queries:
-            response = self.enc_dec.generate_response(query)
-            log('Q: %s\nA: %s' % (query, response))

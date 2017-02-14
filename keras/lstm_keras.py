@@ -1,6 +1,7 @@
 import numpy as np
 import nltk
-from utils import *
+import utils
+from callbacks import EncDecCallback
 from keras.models import Sequential, Model
 from keras.layers.recurrent import LSTM
 from keras.layers import Input
@@ -56,22 +57,22 @@ class LSTMEncDec:
         self.model.compile(optimizer=RMSprop(learning_rate), loss='mean_squared_error')
         self.model.build(sequence_len)
 
-    def train(self, Xtrain, ytrain, nb_epoch, batch_size=1, queries=None):
+    def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries)
-        self.model.fit(Xtrain, ytrain, nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[callback])
+        self.model.fit(Xtrain, ytrain, nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[callback], verbose=1)
 
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query)
         indexes = [self.word_to_index[w] if w in self.word_to_index
-                   else self.word_to_index[UNKNOWN_TOKEN] for w in tokens]
+                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
         indexes.extend([0] * (self.sequence_len - len(indexes)))
-        indexes = np.asarray(indexes, dtype=np.int32).reshape((1, 2000))
+        indexes = np.asarray(indexes, dtype=np.int32).reshape((1, self.sequence_len))
         output = self.model.predict(indexes, batch_size=1, verbose=0)
         vectors = self.embed.get_weights()[0][1:-1]
         response = []
         for word_vec in output[0]:
-            word = self.index_to_word[nearest_vector_index(vectors, word_vec) + 1]
-            if word == SENTENCE_END_TOKEN:
+            word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec) + 1]
+            if word == utils.SENTENCE_END_TOKEN:
                 break
             response.append(word)
 

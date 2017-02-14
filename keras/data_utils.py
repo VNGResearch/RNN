@@ -36,7 +36,7 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
     with open(filename, 'r') as f:
         data = json.load(f)
         if sample_size is not None:
-            data = dict(random.sample(data.items(), sample_size))
+            data = random.sample(data, sample_size)
         for qa in data:
             questions.append("%s" % qa['question'].lower())
             answers.append("%s %s" % (qa['answer'].lower(), SENTENCE_END_TOKEN))
@@ -85,7 +85,7 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
         for j in range(len(tokenized_questions[i])):
             X_train[i][j] = word_to_index[tokenized_questions[i][j]]
 
-    y_train = np.zeros((len(tokenized_questions), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
+    y_train = np.zeros((len(tokenized_answers), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
     for i in range(len(tokenized_answers)):
         for j in range(len(tokenized_answers[i])):
             y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
