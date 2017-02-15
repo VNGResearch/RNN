@@ -9,11 +9,11 @@ from utils import *
 def load_embedding(vocabulary_size):
     print("Loading word embedding...")
     embed = Glove.load_stanford('data/glove.6B.50d.txt')
-    embed_layer = embed.word_vectors[:vocabulary_size, :]
+    embed_layer = np.asarray(embed.word_vectors[:vocabulary_size, :], dtype=np.float32)
     index_to_word = list(embed.inverse_dictionary.values())
     index_to_word.insert(0, MASK_TOKEN)
     index_to_word = index_to_word[:vocabulary_size]
-    word_to_index = dict([(w, i) for i, w in embed.inverse_dictionary.items()][:vocabulary_size])
+    word_to_index = dict([(w, i) for i, w in enumerate(index_to_word)])
 
     word_count = len(index_to_word)
     index_to_word.append(SENTENCE_END_TOKEN)
@@ -22,9 +22,12 @@ def load_embedding(vocabulary_size):
     word_to_index[UNKNOWN_TOKEN] = word_count + 1
 
     word_dim = np.size(embed_layer, 1)
-    embed_layer = np.vstack((np.zeros((1, word_dim)), embed_layer))
-    embed_layer = np.vstack((embed_layer, np.random.rand(1, word_dim)))  # TODO Embed meaning for SENTENCE_END_TOKEN
-    embed_layer = np.vstack((embed_layer, np.random.rand(1, word_dim)))
+    # Vector for the MASK token
+    embed_layer = np.vstack((np.zeros((1, word_dim), dtype=np.float32), embed_layer))
+    # TODO Embed meaning for SENTENCE_END_TOKEN
+    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(-10.0, 10.0, (1, word_dim)), dtype=np.float32)))
+    # Random vector for UNKNOWN_TOKEN, placed intentionally far away from vocabulary words
+    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(20.0, 50.0, (1, word_dim)), dtype=np.float32)))
 
     return embed_layer, word_to_index, index_to_word
 
@@ -90,4 +93,4 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
         for j in range(len(tokenized_answers[i])):
             y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, tokenized_questions, tokenized_answers

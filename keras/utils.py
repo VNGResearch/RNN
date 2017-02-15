@@ -4,9 +4,9 @@ import pickle
 from lstm_keras import *
 
 
-SENTENCE_END_TOKEN = '$SENTENCE_END'
-UNKNOWN_TOKEN = '$UNKNOWN'
-MASK_TOKEN = '<MASK>'
+SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
+UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
+MASK_TOKEN = 'MASK_TOKEN'
 DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
 
 
