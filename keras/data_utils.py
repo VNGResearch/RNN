@@ -93,4 +93,4 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
         for j in range(len(tokenized_answers[i])):
             y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, tokenized_questions, tokenized_answers
+    return X_train, y_train, word_to_index, index_to_word, embed_layer
