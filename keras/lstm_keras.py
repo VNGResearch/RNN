@@ -11,12 +11,15 @@ from keras.optimizers import RMSprop
 
 
 class LSTMEncDec:
-    def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,), dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000):
+    def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
+                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='mean_squared_error'):
         self.word_to_index = word_to_index
         self.index_to_word = index_to_word
         self.sequence_len = sequence_len
         self.enc_layer_output = enc_layer_output
         self.dec_layer_output = dec_layer_output
+        self.encoder = Sequential()
+        self.decoder = Sequential()
 
         # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
         if word_vec is not None:
@@ -26,36 +29,39 @@ class LSTMEncDec:
             self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
                                    trainable=False, mask_zero=True, name='Embed')
 
+        input_layer, output_layer = self.config_processing(word_vec)
+
+        self.model = Model(input=input_layer, output=output_layer)
+        if weight_file is not None:
+            self.model.load_weights(weight_file)
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss)
+        # self.model.build(sequence_len)
+
+    def config_processing(self, word_vec):
         # Configure input layer
-        input_layer = Input(shape=(sequence_len,), name='Input')
+        input_layer = Input(shape=(self.sequence_len,), name='Input')
 
         # Configure encoder network with the given output sizes.
-        self.encoder = Sequential()
         # Embedding for encoder only since decoder receives the question vector.
         self.encoder.add(self.embed)
-        for el in enc_layer_output[:-1]:
+        for el in self.enc_layer_output[:-1]:
             self.encoder.add(LSTM(el, return_sequences=True))
-        self.encoder.add(LSTM(enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
-        self.encoder.add(RepeatVector(sequence_len))  # Repeat the final vector for answer input
+        self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
+        self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
         # Encoder outputs the question vector as a tensor with with each time-step output being the final question vector
         question_vec = self.encoder(input_layer)
 
         # Configure decoder network with the given output sizes.
-        self.decoder = Sequential()
         # Layer connecting to encoder output
-        self.decoder.add(LSTM(dec_layer_output[0], input_shape=(sequence_len, enc_layer_output[-1]), name='ConnectorLSTM', return_sequences=True))
-        for dl in dec_layer_output[1:]:
+        self.decoder.add(
+            LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
+                 name='ConnectorLSTM', return_sequences=True))
+        for dl in self.dec_layer_output[1:]:
             self.decoder.add(LSTM(dl, return_sequences=True))
         # Final layer outputting a sequence of word vectors
         self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True))
         output_layer = self.decoder(question_vec)
-
-        if weight_file is not None:
-            self.model.load_weights(weight_file)
-
-        self.model = Model(input=input_layer, output=output_layer)
-        self.model.compile(optimizer=RMSprop(learning_rate), loss='mean_squared_error')
-        self.model.build(sequence_len)
+        return input_layer, output_layer
 
     def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries)
@@ -77,3 +83,35 @@ class LSTMEncDec:
             response.append(word)
 
         return ' '.join(response)
+
+
+class LSTMEncDec2(LSTMEncDec):
+    def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
+                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy'):
+        super().__init__(word_vec, word_to_index, index_to_word, weight_file, enc_layer_output,
+                         dec_layer_output, learning_rate, sequence_len, loss)
+
+    def config_processing(self, word_vec):
+        # Configure input layer
+        input_layer = Input(shape=(self.sequence_len,), name='Input')
+
+        # Configure encoder network with the given output sizes.
+        # Embedding for encoder only since decoder receives the question vector.
+        self.encoder.add(self.embed)
+        for el in self.enc_layer_output[:-1]:
+            self.encoder.add(LSTM(el, return_sequences=True))
+        self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
+        self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
+        # Encoder outputs the question vector as a tensor with with each time-step output being the final question vector
+        question_vec = self.encoder(input_layer)
+
+        # Configure decoder network with the given output sizes.
+        # Layer connecting to encoder output
+        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
+                              name='ConnectorLSTM', return_sequences=True))
+        for dl in self.dec_layer_output[1:]:
+            self.decoder.add(LSTM(dl, return_sequences=True))
+        # Final layer outputting a sequence of word vectors
+        self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True))
+        output_layer = self.decoder(question_vec)
+        return input_layer, output_layer
