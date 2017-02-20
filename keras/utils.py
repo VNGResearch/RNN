@@ -10,7 +10,7 @@ DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
 
 
 def log(string='', out=True):
-    f = open(DIRECTORY + '/.log', mode='at')
+    f = open(DIRECTORY + '/log.txt', mode='at')
     if out:
         print(string)
     print(string, file=f)

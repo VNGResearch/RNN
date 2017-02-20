@@ -32,7 +32,7 @@ def load_embedding(vocabulary_size):
     return embed_layer, word_to_index, index_to_word
 
 
-def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000):
+def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
     print("Reading JSON file (%s) ..." % filename)
     questions = []
     answers = []
@@ -88,9 +88,16 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
         for j in range(len(tokenized_questions[i])):
             X_train[i][j] = word_to_index[tokenized_questions[i][j]]
 
-    y_train = np.zeros((len(tokenized_answers), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
-    for i in range(len(tokenized_answers)):
-        for j in range(len(tokenized_answers[i])):
-            y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
+    if vec_labels:
+        y_train = np.zeros((len(tokenized_answers), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
+        for i in range(len(tokenized_answers)):
+            for j in range(len(tokenized_answers[i])):
+                y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
+    else:
+        y_train = np.zeros((len(tokenized_answers), sequence_len, len(index_to_word)), dtype=np.float32)
+        for i in range(len(tokenized_answers)):
+            for j in range(len(tokenized_answers[i])):
+                p = word_to_index[tokenized_answers[i][j]]
+                y_train[i][j][p] = 1
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer

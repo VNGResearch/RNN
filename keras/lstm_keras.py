@@ -4,7 +4,7 @@ import utils
 from callbacks import EncDecCallback
 from keras.models import Sequential, Model
 from keras.layers.recurrent import LSTM
-from keras.layers import Input
+from keras.layers import Input, Dense
 from keras.layers.core import RepeatVector
 from keras.layers.embeddings import Embedding
 from keras.optimizers import RMSprop
@@ -22,12 +22,8 @@ class LSTMEncDec:
         self.decoder = Sequential()
 
         # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
-        if word_vec is not None:
-            self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
-                                   weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
-        else:
-            self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
-                                   trainable=False, mask_zero=True, name='Embed')
+        self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
+                               weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
 
         input_layer, output_layer = self.config_processing(word_vec)
 
@@ -113,5 +109,22 @@ class LSTMEncDec2(LSTMEncDec):
             self.decoder.add(LSTM(dl, return_sequences=True))
         # Final layer outputting a sequence of word vectors
         self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True))
+        self.decoder.add(Dense(len(self.index_to_word), activation='softmax'))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
+
+    def generate_response(self, query):
+        tokens = nltk.word_tokenize(query)
+        indexes = [self.word_to_index[w] if w in self.word_to_index
+                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
+        indexes.extend([0] * (self.sequence_len - len(indexes)))
+        indexes = np.asarray(indexes, dtype=np.int32).reshape((1, self.sequence_len))
+        output = self.model.predict(indexes, batch_size=1, verbose=0)
+        response = []
+        for word_vec in output:
+            word = self.index_to_word[np.argmax(word_vec[1:-1], axis=1)]
+            if word == utils.SENTENCE_END_TOKEN:
+                break
+            response.append(word)
+
+        return ' '.join(response)

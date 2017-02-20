@@ -1,4 +1,3 @@
-import numpy as np
 import os
 from settings import *
 from data_utils import *
