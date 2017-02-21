@@ -113,6 +113,10 @@ class LSTMEncDec2(LSTMEncDec):
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
 
+    def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
+        callback = EncDecCallback(self, queries, True)
+        self.model.fit(Xtrain, ytrain, nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[callback], verbose=1)
+
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query)
         indexes = [self.word_to_index[w] if w in self.word_to_index

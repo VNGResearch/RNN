@@ -7,10 +7,14 @@ SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
 MASK_TOKEN = 'MASK_TOKEN'
 DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
+ALT_DIRECTORY = './models/LSTM2_%s' % datetime.date.today().isoformat()
 
 
-def log(string='', out=True):
-    f = open(DIRECTORY + '/log.txt', mode='at')
+def log(string='', out=True, alt=False):
+    if not alt:
+        f = open(DIRECTORY + '/log.txt', mode='at')
+    else:
+        f = open(ALT_DIRECTORY + '/log.txt', mode='at')
     if out:
         print(string)
     print(string, file=f)
