@@ -8,7 +8,7 @@ from utils import *
 
 def load_embedding(vocabulary_size):
     print("Loading word embedding...")
-    embed = Glove.load_stanford('data/glove.6B.50d.txt')
+    embed = Glove.load_stanford('data/glove.6B.100d.txt')
     embed_layer = np.asarray(embed.word_vectors[:vocabulary_size, :], dtype=np.float32)
     index_to_word = list(embed.inverse_dictionary.values())
     index_to_word.insert(0, MASK_TOKEN)
