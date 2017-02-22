@@ -29,10 +29,15 @@ def nearest_vector_index(array, value):
     return np.sum(np.abs(array-value), axis=1).argmin()
 
 
-def save_model(model):
-    f1 = DIRECTORY + '/weights.hdf5'
-    f2 = DIRECTORY + '/config.pkl'
-    f3 = DIRECTORY + '/dictionary.npz'
+def save_model(model, alt=False):
+    if alt:
+        directory = ALT_DIRECTORY
+    else:
+        directory = DIRECTORY
+
+    f1 = directory + '/weights.hdf5'
+    f2 = directory + '/config.pkl'
+    f3 = directory + '/dictionary.npz'
 
     model.model.save_weights(f1)
 
@@ -45,7 +50,7 @@ def save_model(model):
 
     np.savez(f3, wit=model.word_to_index, itw=model.index_to_word,
              wv=word_vec)
-    print('Saved model to %s' % DIRECTORY)
+    print('Saved model to %s' % directory)
 
 
 def load_model(directory):

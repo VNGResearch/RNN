@@ -44,7 +44,7 @@ class LSTMEncDec:
         # Embedding for encoder only since decoder receives the question vector.
         self.encoder.add(self.embed)
         for el in self.enc_layer_output[:-1]:
-            self.encoder.add(LSTM(el, return_sequences=True))
+            self.encoder.add(LSTM(el, return_sequences=True, consume_less='mem'))
         self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
         self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
         # Encoder outputs the question vector as a tensor with with each time-step output being the final question vector
@@ -54,11 +54,11 @@ class LSTMEncDec:
         # Layer connecting to encoder output
         self.decoder.add(
             LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
-                 name='ConnectorLSTM', return_sequences=True))
+                 name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
         for dl in self.dec_layer_output[1:]:
-            self.decoder.add(LSTM(dl, return_sequences=True))
+            self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
         # Final layer outputting a sequence of word vectors
-        self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True))
+        self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True, consume_less='mem'))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
 
@@ -98,7 +98,7 @@ class LSTMEncDec2(LSTMEncDec):
         # Embedding for encoder only since decoder receives the question vector.
         self.encoder.add(self.embed)
         for el in self.enc_layer_output[:-1]:
-            self.encoder.add(LSTM(el, return_sequences=True))
+            self.encoder.add(LSTM(el, return_sequences=True, consume_less='mem'))
         self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
         self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
         # Encoder outputs the question vector as a tensor with with each time-step output being the final question vector
@@ -107,11 +107,10 @@ class LSTMEncDec2(LSTMEncDec):
         # Configure decoder network with the given output sizes.
         # Layer connecting to encoder output
         self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
-                              name='ConnectorLSTM', return_sequences=True))
+                              name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
         for dl in self.dec_layer_output[1:]:
-            self.decoder.add(LSTM(dl, return_sequences=True))
-        # Final layer outputting a sequence of word vectors
-        self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True))
+            self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
+        # Final layer outputting a word distribution
         self.decoder.add(Dense(len(self.index_to_word), activation='softmax'))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
@@ -141,8 +140,8 @@ class LSTMEncDec2(LSTMEncDec):
         indexes = np.asarray(indexes, dtype=np.int32).reshape((1, self.sequence_len))
         output = self.model.predict(indexes, batch_size=1, verbose=0)
         response = []
-        for word_vec in output:
-            word = self.index_to_word[np.argmax(word_vec[1:-1], axis=1)]
+        for word_vec in output[0]:
+            word = self.index_to_word[np.argmax(word_vec[1:-1], axis=0)]
             if word == utils.SENTENCE_END_TOKEN:
                 break
             response.append(word)

@@ -1,5 +1,6 @@
 import json
 import nltk
+import os
 import random
 import numpy as np
 from glove import Glove
@@ -102,3 +103,70 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer
 
+
+def load_data_opensub(path='./data/opensub/', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+    print('Reading TXT files...')
+    raw_x, raw_y = [], []
+    fl = os.listdir(path)
+    if sample_size is not None:
+        fl = (np.random.shuffle(fl))[:sample_size]
+
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    print('Tokenizing')
+    for fn in fl:
+        f = open(path + fn, 'rt')
+        lines = f.readlines()
+        for i, l in enumerate(lines[:-1]):
+            l1 = nltk.word_tokenize(l)
+            l2 = nltk.word_tokenize(lines[i+1])
+            raw_x.append(l1)
+            raw_y.append(l2)
+
+    unk_count = 0.0
+    total = 0.0
+    for i, sent in enumerate(raw_x):
+        idx = 0
+        for w in sent:
+            if w in word_to_index:
+                nw = w
+            else:
+                nw = UNKNOWN_TOKEN
+                unk_count += 1.0
+            total += 1.0
+            raw_x[i][idx] = nw
+            idx += 1
+    for i, sent in enumerate(raw_y):
+        idx = 0
+        for w in sent:
+            if w in word_to_index:
+                nw = w
+            else:
+                nw = UNKNOWN_TOKEN
+                unk_count += 1.0
+            total += 1.0
+            raw_y[i][idx] = nw
+            idx += 1
+    print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
+    print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
+
+    print('Generating data...')
+    X_train = np.zeros((len(raw_x), sequence_len), dtype=np.int32)
+    for i in range(len(raw_x)):
+        for j in range(len(raw_x[i])):
+            X_train[i][j] = word_to_index[raw_x[i][j]]
+
+    if vec_labels:
+        y_train = np.zeros((len(raw_y), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
+        for i in range(len(raw_y)):
+            for j in range(len(raw_y[i])):
+                y_train[i][j] = embed_layer[word_to_index[raw_y[i][j]]]
+    else:
+        y_train = np.zeros((len(raw_y), sequence_len), dtype=np.float32)
+        for i in range(len(raw_y)):
+            for j in range(len(raw_y[i])):
+                p = word_to_index[raw_y[i][j]]
+                y_train[i][j] = p
+
+    return X_train, y_train, word_to_index, index_to_word, embed_layer

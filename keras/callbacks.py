@@ -12,7 +12,7 @@ class EncDecCallback(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         utils.log('\nEnd of epoch %s --- Loss: %f' % (epoch, logs['loss']), alt=self.alt)
-        utils.save_model(self.enc_dec)
+        utils.save_model(self.enc_dec, alt=self.alt)
         print('Logging responses')
         for query in self.queries:
             response = self.enc_dec.generate_response(query)
