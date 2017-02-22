@@ -94,10 +94,11 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
             for j in range(len(tokenized_answers[i])):
                 y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
     else:
-        y_train = np.zeros((len(tokenized_answers), sequence_len, len(index_to_word)), dtype=np.float32)
+        y_train = np.zeros((len(tokenized_answers), sequence_len), dtype=np.float32)
         for i in range(len(tokenized_answers)):
             for j in range(len(tokenized_answers[i])):
                 p = word_to_index[tokenized_answers[i][j]]
-                y_train[i][j][p] = 1
+                y_train[i][j] = p
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer
+

@@ -66,3 +66,20 @@ def load_model(directory):
                           sequence_len=config['seq_len'])
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
+
+
+def generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size=10):
+    while True:
+        for i in range(0, total_len, batch_size):
+            yt = to_hot_coded(ytrain[i:i + batch_size], nb_class)
+            Xt = Xtrain[i:i + batch_size]
+            yield (Xt, yt)
+
+
+def to_hot_coded(y, nb_classes):
+    yt = np.zeros((np.size(y, 0), np.size(y, 1), nb_classes))
+    for i in range(np.size(y, 0)):
+        for j in range(np.size(y, 1)):
+            yt[i][j][int(y[i][j])] = 1
+
+    return yt

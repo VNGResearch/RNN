@@ -1,7 +1,10 @@
 import numpy as np
 import nltk
+import sys
+
 import utils
 from callbacks import EncDecCallback
+from keras.callbacks import *
 from keras.models import Sequential, Model
 from keras.layers.recurrent import LSTM
 from keras.layers import Input, Dense
@@ -115,7 +118,20 @@ class LSTMEncDec2(LSTMEncDec):
 
     def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries, True)
-        self.model.fit(Xtrain, ytrain, nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[callback], verbose=1)
+        nb_class = len(self.index_to_word)
+        total_len = np.size(ytrain, 0)
+        self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size), samples_per_epoch=total_len,
+                                 nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
+
+    def train_on_batch(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
+        nb_class = len(self.index_to_word)
+        total_len = np.size(ytrain, 0)
+        for epoch in range(0, nb_epoch):
+            for i in range(0, total_len, batch_size):
+                yt = utils.to_hot_coded(ytrain[i:i + batch_size], nb_class)
+                loss = self.model.train_on_batch(Xtrain[i:i + batch_size], yt)
+                print('Epoch %s: %s/%s - Loss: %s' % (epoch, i, total_len, loss), sep=' ', end='', flush=True)
+                sys.stdout.flush()
 
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query)
