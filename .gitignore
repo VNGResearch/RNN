@@ -4,4 +4,6 @@
 /LSTM-GRU/.ipynb_checkpoints
 /LSTM-GRU/10.198.54.230
 /keras/data
+/keras/models
+/keras/.idea
 /keras/test.py

@@ -10,7 +10,8 @@ if not os.path.exists(DIRECTORY):
 # Get training and test data
 X_train, y_train, word_to_index, index_to_word, word_vec = load_data_yahoo(vocabulary_size=VOCABULARY_SIZE,
                                                                            sample_size=DATA_SIZE,
-                                                                           sequence_len=SEQUENCE_LENGTH)
+                                                                           sequence_len=SEQUENCE_LENGTH,
+                                                                           vec_labels=False)
 
 # Getting queries
 with open(QUERY_FILE, 'rt') as f:
@@ -24,4 +25,4 @@ model = LSTMEncDec(word_vec, word_to_index, index_to_word, enc_layer_output=ENCO
 
 # Start training
 print('Starting training...')
-model.train(X_train, y_train, N_EPOCH, queries=queries, batch_size=BATCH_SIZE)
+model.train_generator(X_train, y_train, N_EPOCH, queries=queries, batch_size=BATCH_SIZE)

@@ -104,25 +104,27 @@ def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size
     return X_train, y_train, word_to_index, index_to_word, embed_layer
 
 
-def load_data_opensub(path='./data/opensub/', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
     print('Reading TXT files...')
     raw_x, raw_y = [], []
     fl = os.listdir(path)
     if sample_size is not None:
-        fl = (np.random.shuffle(fl))[:sample_size]
+        np.random.shuffle(fl)
+        fl = fl[:sample_size]
 
     print("Using vocabulary size %d." % vocabulary_size)
     embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
 
-    print('Tokenizing')
+    print('Tokenizing...')
     for fn in fl:
-        f = open(path + fn, 'rt')
+        f = open(path + '/' + fn, 'rt')
         lines = f.readlines()
         for i, l in enumerate(lines[:-1]):
             l1 = nltk.word_tokenize(l)
             l2 = nltk.word_tokenize(lines[i+1])
             raw_x.append(l1)
             raw_y.append(l2)
+    print("Parsed %s exchanges." % (len(raw_x)))
 
     unk_count = 0.0
     total = 0.0

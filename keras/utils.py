@@ -81,10 +81,27 @@ def generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size=10):
             yield (Xt, yt)
 
 
+def generate_vector_batch(Xtrain, ytrain, word_vec, total_len, batch_size=10):
+    while True:
+        for i in range(0, total_len, batch_size):
+            yt = to_vector(ytrain[i:i + batch_size], word_vec)
+            Xt = Xtrain[i:i + batch_size]
+            yield (Xt, yt)
+
+
 def to_hot_coded(y, nb_classes):
-    yt = np.zeros((np.size(y, 0), np.size(y, 1), nb_classes))
+    yt = np.zeros((np.size(y, 0), np.size(y, 1), nb_classes), dtype=np.int32)
     for i in range(np.size(y, 0)):
         for j in range(np.size(y, 1)):
             yt[i][j][int(y[i][j])] = 1
+
+    return yt
+
+
+def to_vector(y, word_vec):
+    yt = yt = np.zeros((np.size(y, 0), np.size(y, 1), np.size(word_vec, 1)), dtype=np.float32)
+    for i in range(np.size(y, 0)):
+        for j in range(np.size(y, 1)):
+            yt[i][j] = word_vec[int(y[i][j])]
 
     return yt

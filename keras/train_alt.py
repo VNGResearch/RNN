@@ -9,10 +9,10 @@ if not os.path.exists(ALT_DIRECTORY):
     os.makedirs(ALT_DIRECTORY)
 
 # Get training and test data
-X_train, y_train, word_to_index, index_to_word, word_vec = load_data_yahoo(vocabulary_size=VOCABULARY_SIZE,
-                                                                           sample_size=DATA_SIZE,
-                                                                           sequence_len=SEQUENCE_LENGTH,
-                                                                           vec_labels=False)
+X_train, y_train, word_to_index, index_to_word, word_vec = load_data_opensub(vocabulary_size=VOCABULARY_SIZE,
+                                                                             sample_size=DOC_COUNT,
+                                                                             sequence_len=SEQUENCE_LENGTH,
+                                                                             vec_labels=False)
 
 # Get queries
 with open(QUERY_FILE, 'rt') as f:
