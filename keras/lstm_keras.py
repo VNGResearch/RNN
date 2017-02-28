@@ -74,7 +74,7 @@ class LSTMEncDec:
                                  verbose=1, max_q_size=1, nb_worker=1)
 
     def generate_response(self, query):
-        tokens = nltk.word_tokenize(query)
+        tokens = nltk.word_tokenize(query.lower())
         indexes = [self.word_to_index[w] if w in self.word_to_index
                    else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
         indexes.extend([0] * (self.sequence_len - len(indexes)))
@@ -130,7 +130,7 @@ class LSTMEncDec2(LSTMEncDec):
                                  nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
 
     def generate_response(self, query):
-        tokens = nltk.word_tokenize(query)
+        tokens = nltk.word_tokenize(query.lower())
         indexes = [self.word_to_index[w] if w in self.word_to_index
                    else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
         indexes.extend([0] * (self.sequence_len - len(indexes)))

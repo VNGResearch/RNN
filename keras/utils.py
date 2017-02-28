@@ -53,7 +53,7 @@ def save_model(model, alt=False):
     print('Saved model to %s' % directory)
 
 
-def load_model(directory):
+def load_model(directory, m_class=LSTMEncDec):
     f1 = directory + '/weights.hdf5'
     f2 = directory + '/config.pkl'
     f3 = directory + '/dictionary.npz'
@@ -66,9 +66,9 @@ def load_model(directory):
         word_to_index, index_to_word, word_vec = npz_file["wit"].reshape(1)[0], npz_file["itw"], npz_file["wv"].reshape(config['word_vec_dim'])
 
         print('Done.')
-        return LSTMEncDec(word_vec, word_to_index, index_to_word, weight_file=f1,
-                          enc_layer_output=config['enc_layer'], dec_layer_output=config['dec_layer'],
-                          sequence_len=config['seq_len'])
+        return m_class(word_vec, word_to_index, index_to_word, weight_file=f1,
+                       enc_layer_output=config['enc_layer'], dec_layer_output=config['dec_layer'],
+                       sequence_len=config['seq_len'])
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
 
@@ -90,7 +90,7 @@ def generate_vector_batch(Xtrain, ytrain, word_vec, total_len, batch_size=10):
 
 
 def to_hot_coded(y, nb_classes):
-    yt = np.zeros((np.size(y, 0), np.size(y, 1), nb_classes), dtype=np.int32)
+    yt = np.zeros((np.size(y, 0), np.size(y, 1), nb_classes), dtype=np.float32)
     for i in range(np.size(y, 0)):
         for j in range(np.size(y, 1)):
             yt[i][j][int(y[i][j])] = 1
