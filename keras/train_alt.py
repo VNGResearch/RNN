@@ -9,15 +9,19 @@ if not os.path.exists(ALT_DIRECTORY):
     os.makedirs(ALT_DIRECTORY)
 
 # Get training and test data
-X_train, y_train, word_to_index, index_to_word, word_vec = load_data_opensub(vocabulary_size=VOCABULARY_SIZE,
-                                                                             sample_size=DOC_COUNT,
-                                                                             sequence_len=SEQUENCE_LENGTH,
-                                                                             vec_labels=False)
-
+X, y, word_to_index, index_to_word, word_vec, samples = load_data_opensub(vocabulary_size=VOCABULARY_SIZE,
+                                                                          sample_size=DOC_COUNT,
+                                                                          sequence_len=SEQUENCE_LENGTH,
+                                                                          vec_labels=False)
+X_val = X[:100]
+X_train = X[100:300]
+y_val = y[:100]
+y_train = y[100:300]
 # Get queries
 with open(QUERY_FILE, 'rt') as f:
-    queries = f.readlines()
+    queries = [q.rstrip() for q in f.readlines()]
     f.close()
+queries.extend(samples)
 
 # Initialize model
 print('Creating model...')
@@ -26,4 +30,4 @@ model = LSTMEncDec2(word_vec, word_to_index, index_to_word, enc_layer_output=ENC
 
 # Start training
 print('Starting training...')
-model.train(X_train, y_train, N_EPOCH, BATCH_SIZE, queries=queries)
+model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val)

@@ -16,5 +16,5 @@ class EncDecCallback(Callback):
         print('Logging responses')
         for query in self.queries:
             response = self.enc_dec.generate_response(query)
-            utils.log('Q: %s\nA: %s' % (query, response), out=False, alt=self.alt)
+            utils.log('Q: %s\nA: %s\n' % (query, response), out=False, alt=self.alt)
         gc.collect()

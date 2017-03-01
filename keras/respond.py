@@ -1,4 +1,4 @@
-from lstm_keras import *
+from lstm_keras import LSTMEncDec, LSTMEncDec2
 from argparse import ArgumentParser
 import utils
 
@@ -26,7 +26,7 @@ if args.queries is not None:
         f.close()
     print('Showing responses from %s' % args.queries)
     for q in queries:
-        r = model.generate_response(q)
+        r = model.generate_response(q.lower())
         print(q + r + '\n')
 else:
     print('Running in shell mode. Type \'exit\' to terminate...')
@@ -34,5 +34,5 @@ else:
         q = input('Q: ')
         if q == 'exit':
             break
-        r = model.generate_response(q)
+        r = model.generate_response(q.lower())
         print(r + '\n')

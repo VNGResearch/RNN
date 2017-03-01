@@ -1,7 +1,6 @@
 import numpy as np
 import datetime
 import pickle
-from lstm_keras import *
 
 SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
@@ -53,7 +52,7 @@ def save_model(model, alt=False):
     print('Saved model to %s' % directory)
 
 
-def load_model(directory, m_class=LSTMEncDec):
+def load_model(directory, m_class):
     f1 = directory + '/weights.hdf5'
     f2 = directory + '/config.pkl'
     f3 = directory + '/dictionary.npz'

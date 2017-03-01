@@ -10,7 +10,7 @@ from keras.layers.recurrent import LSTM
 from keras.layers import Input, Dense
 from keras.layers.core import RepeatVector
 from keras.layers.embeddings import Embedding
-from keras.optimizers import RMSprop
+from keras.optimizers import Adam, RMSprop
 
 
 class LSTMEncDec:
@@ -33,8 +33,7 @@ class LSTMEncDec:
         self.model = Model(input=input_layer, output=output_layer)
         if weight_file is not None:
             self.model.load_weights(weight_file)
-        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss)
-        # self.model.build(sequence_len)
+        self.compile(learning_rate, loss)
 
     def config_processing(self, word_vec):
         # Configure input layer
@@ -61,6 +60,9 @@ class LSTMEncDec:
         self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True, consume_less='mem'))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
+
+    def compile(self, learning_rate, loss):
+        self.model.compile(optimizer=Adam(learning_rate), loss=loss, metrics=['mean_absolute_error'])
 
     def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries)
@@ -122,25 +124,37 @@ class LSTMEncDec2(LSTMEncDec):
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
 
-    def train(self, Xtrain, ytrain, nb_epoch, batch_size=10, queries=None):
+    def compile(self, learning_rate, loss):
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=['categorical_accuracy'])
+
+    def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries, True)
         nb_class = len(self.index_to_word)
         total_len = np.size(ytrain, 0)
-        self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size), samples_per_epoch=total_len,
-                                 nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
+        if Xval is None or yval is None:
+            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size), samples_per_epoch=total_len,
+                                     nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
+        else:
+            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size),
+                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], verbose=1,
+                                     validation_data=utils.generate_batch(Xval, yval, nb_class, 100, 1),
+                                     max_q_size=1, nb_worker=1, nb_val_samples=100)
 
     def generate_response(self, query):
-        tokens = nltk.word_tokenize(query.lower())
-        indexes = [self.word_to_index[w] if w in self.word_to_index
+        tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
+        indices = [self.word_to_index[w] if w in self.word_to_index
                    else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
-        indexes.extend([0] * (self.sequence_len - len(indexes)))
-        indexes = np.asarray(indexes, dtype=np.int32).reshape((1, self.sequence_len))
-        output = self.model.predict(indexes, batch_size=1, verbose=0)
+        indices.extend([0] * (self.sequence_len - len(indices)))
+        indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
+        output = self.model.predict(indices)
+        out_idx = np.argmax(output, axis=2)
         response = []
-        for word_vec in output[0]:
-            word = self.index_to_word[np.argmax(word_vec[1:-1], axis=0)]
+        # noinspection PyTypeChecker
+        for idx in out_idx[0]:
+            word = self.index_to_word[idx]
+            if word == utils.MASK_TOKEN:
+                continue
             if word == utils.SENTENCE_END_TOKEN:
                 break
             response.append(word)
-
         return ' '.join(response)

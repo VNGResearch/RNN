@@ -115,13 +115,19 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     print("Using vocabulary size %d." % vocabulary_size)
     embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
 
+    samples = []
     print('Tokenizing...')
     for fn in fl:
         f = open(path + '/' + fn, 'rt')
         lines = f.readlines()
         for i, l in enumerate(lines[:-1]):
-            l1 = nltk.word_tokenize(l)
-            l2 = nltk.word_tokenize(lines[i+1])
+            x = random.uniform(0, 1)
+            if x > 0.95:
+                samples.append(l.rstrip().lower())
+
+            l1 = nltk.word_tokenize(l.rstrip().lower())[:sequence_len]
+            l2 = nltk.word_tokenize(lines[i+1].rstrip().lower())[:sequence_len-1]
+            l2.append(SENTENCE_END_TOKEN)
             raw_x.append(l1)
             raw_y.append(l2)
     print("Parsed %s exchanges." % (len(raw_x)))
@@ -171,4 +177,4 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
                 p = word_to_index[raw_y[i][j]]
                 y_train[i][j] = p
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples
