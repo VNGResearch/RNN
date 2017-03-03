@@ -1,10 +1,10 @@
-from operator import mul
-from functools import reduce
-
 import numpy as np
 import nltk
 import keras.backend as K
 import utils
+import theano
+import theano.scan_module
+import theano.tensor as T
 
 from callbacks import EncDecCallback
 from keras.callbacks import *
@@ -138,7 +138,7 @@ class LSTMEncDec2(LSTMEncDec):
         return input_layer, output_layer
 
     def compile(self, learning_rate, loss):
-        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=[self.categorical_accuracy], sample_weight_mode='temporal')
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=['accuracy'], sample_weight_mode='temporal')
 
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries, True)
@@ -168,23 +168,11 @@ class LSTMEncDec2(LSTMEncDec):
             if word == utils.MASK_TOKEN:
                 continue
             elif word == utils.SENTENCE_END_TOKEN:
+                response.append(word)
                 break
             response.append(word)
         return ' '.join(response)
 
     def categorical_accuracy(self, y_true, y_pred):
-        if self.mask is not None:
-            eval_shape = (reduce(mul, y_true.shape[:-1]), y_true.shape[-1])
-            y_true_ = K.reshape(y_true, eval_shape)
-            y_pred_ = K.reshape(y_pred, eval_shape)
-            msk = K.variable(self.mask, dtype=np.float32, name='mask')
-            flat_mask = K.flatten(msk)
-            comped = K.equal(K.argmax(y_true_, axis=-1),
-                             K.argmax(y_pred_, axis=-1))
-            # not sure how to do this in tensor flow
-            good_entries = flat_mask.nonzero()[0]
-            return K.mean(K.gather(comped, good_entries))
+        mask = T.zeros_like(y_true)
 
-        else:
-            return K.mean(K.equal(K.argmax(y_true, axis=-1),
-                                  K.argmax(y_pred, axis=-1)))
