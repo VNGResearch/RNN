@@ -26,9 +26,9 @@ def load_embedding(vocabulary_size):
     # Vector for the MASK token
     embed_layer = np.vstack((np.zeros((1, word_dim), dtype=np.float32), embed_layer))
     # TODO Embed meaning for SENTENCE_END_TOKEN
-    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(-10.0, 10.0, (1, word_dim)), dtype=np.float32)))
+    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(15.0, 30.0, (1, word_dim)), dtype=np.float32)))
     # Random vector for UNKNOWN_TOKEN, placed intentionally far away from vocabulary words
-    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(20.0, 50.0, (1, word_dim)), dtype=np.float32)))
+    embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(50.0, 80.0, (1, word_dim)), dtype=np.float32)))
 
     return embed_layer, word_to_index, index_to_word
 
@@ -118,6 +118,7 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     samples = []
     print('Tokenizing...')
     for fn in fl:
+        print('<<%s>>' % fn)
         f = open(path + '/' + fn, 'rt')
         lines = f.readlines()
         for i, l in enumerate(lines[:-1]):
@@ -165,6 +166,7 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
         for j in range(len(raw_x[i])):
             X_train[i][j] = word_to_index[raw_x[i][j]]
 
+    output_mask = np.ones((len(raw_y), sequence_len), dtype=np.float32)
     if vec_labels:
         y_train = np.zeros((len(raw_y), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
         for i in range(len(raw_y)):
@@ -176,5 +178,9 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
             for j in range(len(raw_y[i])):
                 p = word_to_index[raw_y[i][j]]
                 y_train[i][j] = p
+                if raw_y[i][j] == SENTENCE_END_TOKEN:
+                    output_mask[i][j] = 1.5
+                    for k in range(j+1,sequence_len):
+                        output_mask[i][k] = 0
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask

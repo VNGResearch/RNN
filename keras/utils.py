@@ -72,12 +72,13 @@ def load_model(directory, m_class):
         print('One or more model files cannot be found. Terminating...')
 
 
-def generate_batch(Xtrain, ytrain, nb_class, total_len, batch_size=10):
+def generate_batch(Xtrain, ytrain, mask, nb_class, total_len, batch_size=10):
     while True:
         for i in range(0, total_len, batch_size):
             yt = to_hot_coded(ytrain[i:i + batch_size], nb_class)
             Xt = Xtrain[i:i + batch_size]
-            yield (Xt, yt)
+            msk = mask[i:i + batch_size]
+            yield (Xt, yt, msk)
 
 
 def generate_vector_batch(Xtrain, ytrain, word_vec, total_len, batch_size=10):
