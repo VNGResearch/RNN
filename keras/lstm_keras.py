@@ -1,10 +1,9 @@
 import numpy as np
 import nltk
 import keras.backend as K
-import utils
-import theano
-import theano.scan_module
 import theano.tensor as T
+import theano
+import utils
 
 from callbacks import EncDecCallback
 from keras.callbacks import *
@@ -106,9 +105,9 @@ class LSTMEncDec:
 
 
 class LSTMEncDec2(LSTMEncDec):
-    def __init__(self, word_vec, word_to_index, index_to_word, output_mask=None, weight_file=None, enc_layer_output=(32,),
+    def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy'):
-        self.mask = output_mask
+        self.batch_size = 0
         super().__init__(word_vec, word_to_index, index_to_word, weight_file, enc_layer_output,
                          dec_layer_output, learning_rate, sequence_len, loss)
 
@@ -138,19 +137,20 @@ class LSTMEncDec2(LSTMEncDec):
         return input_layer, output_layer
 
     def compile(self, learning_rate, loss):
-        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=['accuracy'], sample_weight_mode='temporal')
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=['accuracy', self.categorical_accuracy], sample_weight_mode='temporal')
 
-    def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, batch_size=10, queries=None):
+    def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10, queries=None):
+        self.batch_size = batch_size
         callback = EncDecCallback(self, queries, True)
         nb_class = len(self.index_to_word)
         total_len = np.size(ytrain, 0)
         if Xval is None or yval is None:
-            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, self.mask, nb_class, total_len, batch_size), samples_per_epoch=total_len,
+            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size), samples_per_epoch=total_len,
                                      nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
         else:
-            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, self.mask, nb_class, total_len, batch_size),
+            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
                                      samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], verbose=1,
-                                     validation_data=utils.generate_batch(Xval, yval, self.mask, nb_class, 100, 1),
+                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, 100, 5),
                                      max_q_size=1, nb_worker=1, nb_val_samples=100)
 
     def generate_response(self, query):
@@ -174,5 +174,16 @@ class LSTMEncDec2(LSTMEncDec):
         return ' '.join(response)
 
     def categorical_accuracy(self, y_true, y_pred):
-        mask = T.zeros_like(y_true)
+        p = self.word_to_index[utils.SENTENCE_END_TOKEN]
+        total_true = T.zeros(1, dtype='float32')
+        word_count = T.zeros(1, dtype='float32')
+        one = T.ones(1, dtype='float32')
+        for i in range(self.batch_size):
+            for j in range(self.sequence_len):
+                word_count += one
+                if T.sum(y_true[i][j] - y_pred[i][j]) == 0:
+                    total_true += one
+                if T.sum(y_true[i][j][p] - T.ones_like(y_true[i][j][p])) != 0:
+                    break
 
+        return (total_true / word_count)[0]

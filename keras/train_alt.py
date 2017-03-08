@@ -18,6 +18,7 @@ y_val = y[:100]
 y_train = y[100:]
 X = y = None
 gc.collect()
+
 # Get queries
 with open(QUERY_FILE, 'rt') as f:
     queries = [q.rstrip() for q in f.readlines()]
@@ -26,9 +27,10 @@ queries.extend(samples)
 
 # Initialize model
 print('Creating model...')
-model = LSTMEncDec2(word_vec, word_to_index, index_to_word, enc_layer_output=ENCODER_OUTPUTS, output_mask=output_mask,
+model = LSTMEncDec2(word_vec, word_to_index, index_to_word, enc_layer_output=ENCODER_OUTPUTS,
                     dec_layer_output=DECODER_OUTPUTS, learning_rate=LEARNING_RATE, sequence_len=SEQUENCE_LENGTH)
 
 # Start training
 print('Starting training...')
-model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val)
+model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val,
+            train_mask=output_mask[100:], val_mask=output_mask[:100])

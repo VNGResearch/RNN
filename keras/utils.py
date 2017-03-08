@@ -1,6 +1,7 @@
 import numpy as np
 import datetime
 import pickle
+import sys
 
 SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
@@ -70,6 +71,7 @@ def load_model(directory, m_class):
                        sequence_len=config['seq_len'])
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
+        sys.exit()
 
 
 def generate_batch(Xtrain, ytrain, mask, nb_class, total_len, batch_size=10):
