@@ -1,8 +1,8 @@
 import numpy as np
 import nltk
 import keras.backend as K
-import theano.tensor as T
 import theano
+import theano.tensor as T
 import utils
 
 from callbacks import EncDecCallback
@@ -13,6 +13,8 @@ from keras.layers import Input, Dense, TimeDistributed
 from keras.layers.core import RepeatVector
 from keras.layers.embeddings import Embedding
 from keras.optimizers import Adam, RMSprop, Adadelta
+from theano.ifelse import ifelse
+from functools import reduce
 
 
 class LSTMEncDec:
@@ -137,7 +139,7 @@ class LSTMEncDec2(LSTMEncDec):
         return input_layer, output_layer
 
     def compile(self, learning_rate, loss):
-        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=['accuracy', self.categorical_accuracy], sample_weight_mode='temporal')
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=[self.categorical_accuracy], sample_weight_mode='temporal')
 
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10, queries=None):
         self.batch_size = batch_size
@@ -150,7 +152,7 @@ class LSTMEncDec2(LSTMEncDec):
         else:
             self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
                                      samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], verbose=1,
-                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, 100, 5),
+                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, 100, batch_size),
                                      max_q_size=1, nb_worker=1, nb_val_samples=100)
 
     def generate_response(self, query):
@@ -174,16 +176,28 @@ class LSTMEncDec2(LSTMEncDec):
         return ' '.join(response)
 
     def categorical_accuracy(self, y_true, y_pred):
-        p = self.word_to_index[utils.SENTENCE_END_TOKEN]
-        total_true = T.zeros(1, dtype='float32')
-        word_count = T.zeros(1, dtype='float32')
-        one = T.ones(1, dtype='float32')
-        for i in range(self.batch_size):
-            for j in range(self.sequence_len):
-                word_count += one
-                if T.sum(y_true[i][j] - y_pred[i][j]) == 0:
-                    total_true += one
-                if T.sum(y_true[i][j][p] - T.ones_like(y_true[i][j][p])) != 0:
-                    break
+        p = self.word_to_index[utils.MASK_TOKEN]
+        token = np.zeros((len(self.index_to_word)), dtype=np.float32)
+        token[p] = 1
+        t = K.variable(token)
 
-        return (total_true / word_count)[0]
+        # Configure masking function
+        def iterate(a):
+            d2, u2 = theano.scan(fn=mask, sequences=a)
+            return d2
+
+        def mask(w):
+            return ifelse(T.eq(w, t).all(), T.zeros(1), T.ones(1))
+
+        mask, u1 = theano.scan(fn=iterate, sequences=y_true)
+
+        eval_shape = (reduce(T.mul, y_true.shape[:-1]), y_true.shape[-1])
+        y_true_ = K.reshape(y_true, eval_shape)
+        y_pred_ = K.reshape(y_pred, eval_shape)
+        flat_mask = K.flatten(mask)
+        comped = K.equal(K.argmax(y_true_, axis=-1),
+                         K.argmax(y_pred_, axis=-1))
+        # not sure how to do this in tensor flow
+        good_entries = flat_mask.nonzero()[0]
+        return K.mean(K.gather(comped, good_entries))
+        # return K.mean(T.mul(K.equal(K.argmax(y_true, axis=-1), K.argmax(y_pred, axis=-1)), mask))
