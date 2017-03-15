@@ -206,7 +206,7 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
                         speech_tokens = nltk.word_tokenize(line_st.lower())
                         s_q.append(speech_tokens)
                         if len(s_q) > 1:
-                            s_a.append(speech_tokens)
+                            s_a.append(speech_tokens + [SENTENCE_END_TOKEN])
                         # line_str.append(line_st)
                     # speech_str = ' '.join(line_str)
                     # speech_tokens = nltk.word_tokenize(speech_str.lower())
