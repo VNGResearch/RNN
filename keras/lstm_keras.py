@@ -19,10 +19,12 @@ from functools import reduce
 
 class LSTMEncDec:
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
-                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='mean_squared_error'):
+                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='mean_squared_error',
+                 directory='.'):
         self.word_to_index = word_to_index
         self.index_to_word = index_to_word
         self.sequence_len = sequence_len
+        self.directory = directory
         self.enc_layer_output = enc_layer_output
         self.dec_layer_output = dec_layer_output
         self.encoder = Sequential()
@@ -30,7 +32,7 @@ class LSTMEncDec:
 
         # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
         self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
-                               weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
+                               weights=[word_vec], trainable=True, mask_zero=True, name='Embed')
 
         input_layer, output_layer = self.config_processing(word_vec)
 
@@ -108,10 +110,11 @@ class LSTMEncDec:
 
 class LSTMEncDec2(LSTMEncDec):
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
-                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy'):
+                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy',
+                 directory='.'):
         self.batch_size = 0
         super().__init__(word_vec, word_to_index, index_to_word, weight_file, enc_layer_output,
-                         dec_layer_output, learning_rate, sequence_len, loss)
+                         dec_layer_output, learning_rate, sequence_len, loss, directory)
 
     def config_processing(self, word_vec):
         # Configure input layer
@@ -144,14 +147,15 @@ class LSTMEncDec2(LSTMEncDec):
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10, queries=None):
         self.batch_size = batch_size
         callback = EncDecCallback(self, queries, True)
+        logger = CSVLogger(self.directory + '/epochs.csv')
         nb_class = len(self.index_to_word)
         total_len = np.size(ytrain, 0)
         if Xval is None or yval is None:
             self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size), samples_per_epoch=total_len,
-                                     nb_epoch=nb_epoch, callbacks=[callback], verbose=1, max_q_size=1, nb_worker=1)
+                                     nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1, max_q_size=1, nb_worker=1)
         else:
             self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
-                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], verbose=1,
+                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1,
                                      validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, 100, batch_size),
                                      max_q_size=1, nb_worker=1, nb_val_samples=100)
 
@@ -200,4 +204,3 @@ class LSTMEncDec2(LSTMEncDec):
         # not sure how to do this in tensor flow
         good_entries = flat_mask.nonzero()[0]
         return K.mean(K.gather(comped, good_entries))
-        # return K.mean(T.mul(K.equal(K.argmax(y_true, axis=-1), K.argmax(y_pred, axis=-1)), mask))
