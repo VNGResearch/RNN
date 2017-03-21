@@ -184,8 +184,8 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
 
 
 def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
-    def load_play(filepath):
-        play = untangle.parse(filepath)
+    def load_play(file_path):
+        play = untangle.parse(file_path)
         acts = play.PLAY.ACT
         q, a = [], []
 
