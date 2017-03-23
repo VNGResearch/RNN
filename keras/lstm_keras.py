@@ -32,7 +32,7 @@ class LSTMEncDec:
 
         # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
         self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
-                               weights=[word_vec], trainable=True, mask_zero=True, name='Embed')
+                               weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
 
         input_layer, output_layer = self.config_processing(word_vec)
 
@@ -117,6 +117,9 @@ class LSTMEncDec2(LSTMEncDec):
                          dec_layer_output, learning_rate, sequence_len, loss, directory)
 
     def config_processing(self, word_vec):
+        self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
+                               weights=[word_vec], trainable=True, mask_zero=True, name='Embed')
+
         # Configure input layer
         input_layer = Input(shape=(self.sequence_len,), name='Input')
 

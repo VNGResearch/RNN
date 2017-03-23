@@ -239,7 +239,7 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
         raw_x.extend(rx)
         raw_y.extend(ry)
 
-    samples = raw_x[1400:1600]
+    samples = []
     print("Parsed %s exchanges." % (len(raw_x)))
 
     unk_count = 0.0

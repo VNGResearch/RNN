@@ -45,5 +45,5 @@ else:
         conv.append(q + r)
 
 with open(args.log, 'wt') as f:
-    f.writelines(conv)
+    f.write('\n'.join(conv))
     f.close()
