@@ -118,7 +118,7 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
         print('<<%s>>' % fn)
         f = open(path + '/' + fn, 'rt')
         lines = f.readlines()
-        samples.extend(lines[random.randint(0, len(lines))].rstrip())
+        samples.extend(lines[random.randint(0, len(lines)-1)].rstrip())
         for i, l in enumerate(lines[:-1]):
             l1 = nltk.word_tokenize(l.rstrip().lower())[:sequence_len]
             l2 = nltk.word_tokenize(lines[i+1].rstrip().lower())[:sequence_len-1]
