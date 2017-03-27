@@ -12,10 +12,10 @@ X, y, word_to_index, index_to_word, word_vec, samples, output_mask = load_data_o
                                                                                        sample_size=DOC_COUNT,
                                                                                        sequence_len=SEQUENCE_LENGTH,
                                                                                        vec_labels=False)
-X_val = X[:1500]
-X_train = X[1500:]
-y_val = y[:1500]
-y_train = y[1500:]
+X_val = X[:VAL_SPLIt]
+X_train = X[VAL_SPLIt:]
+y_val = y[:VAL_SPLIt]
+y_train = y[VAL_SPLIt:]
 X = y = None
 gc.collect()
 
@@ -28,9 +28,10 @@ queries.extend(samples)
 # Initialize model
 print('Creating model...')
 model = LSTMEncDec2(word_vec, word_to_index, index_to_word, enc_layer_output=ENCODER_OUTPUTS,
-                    dec_layer_output=DECODER_OUTPUTS, learning_rate=LEARNING_RATE, sequence_len=SEQUENCE_LENGTH)
+                    dec_layer_output=DECODER_OUTPUTS, learning_rate=LEARNING_RATE, sequence_len=SEQUENCE_LENGTH,
+                    directory=ALT_DIRECTORY)
 
 # Start training
 print('Starting training...')
 model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val,
-            train_mask=output_mask[1500:], val_mask=output_mask[:1500])
+            train_mask=output_mask[VAL_SPLIt:], val_mask=output_mask[:VAL_SPLIt])

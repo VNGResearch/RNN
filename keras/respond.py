@@ -42,8 +42,8 @@ else:
             break
         r = model.generate_response(q.lower()) + '\n'
         print(r)
-        conv.append(q + r)
+        conv.append(q + '\n' + r)
 
 with open(args.log, 'wt') as f:
-    f.write('\n'.join(conv))
+    f.write('\n\n'.join(conv))
     f.close()

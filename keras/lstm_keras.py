@@ -159,8 +159,8 @@ class LSTMEncDec2(LSTMEncDec):
         else:
             self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
                                      samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1,
-                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, 100, batch_size),
-                                     max_q_size=1, nb_worker=1, nb_val_samples=100)
+                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, Xval.shape[0], batch_size),
+                                     max_q_size=1, nb_worker=1, nb_val_samples=Xval.shape[0])
 
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
