@@ -1,4 +1,4 @@
-from lstm_keras import LSTMEncDec, LSTMEncDec2
+from lstm_enc_dec import LSTMEncDec, LSTMEncDec2
 from argparse import ArgumentParser
 import utils
 

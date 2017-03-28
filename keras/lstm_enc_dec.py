@@ -5,6 +5,8 @@ import theano
 import theano.tensor as T
 import utils
 
+from recurrentshop import RecurrentContainer, LSTMCell
+from seq2seq import LSTMDecoderCell
 from callbacks import EncDecCallback
 from keras.callbacks import *
 from keras.models import Sequential, Model
@@ -69,7 +71,8 @@ class LSTMEncDec:
         return input_layer, output_layer
 
     def compile(self, learning_rate, loss):
-        self.model.compile(optimizer=Adadelta(), loss=loss, metrics=['mean_absolute_error'], sample_weight_mode='temporal')
+        self.model.compile(optimizer=Adadelta(), loss=loss, metrics=['mean_absolute_error'],
+                           sample_weight_mode='temporal')
 
     def train(self, Xtrain, ytrain, nb_epoch, output_mask, batch_size=10, queries=None):
         callback = EncDecCallback(self, queries)
@@ -79,14 +82,16 @@ class LSTMEncDec:
         callback = EncDecCallback(self, queries)
         total_len = np.size(ytrain, 0)
         if Xval is None or yval is None:
-            self.model.fit_generator(utils.generate_vector_batch(Xtrain, ytrain, self.embed.get_weights()[0], total_len, batch_size),
-                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback],
-                                     verbose=1, max_q_size=1, nb_worker=1)
+            self.model.fit_generator(
+                utils.generate_vector_batch(Xtrain, ytrain, self.embed.get_weights()[0], total_len, batch_size),
+                samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback],
+                verbose=1, max_q_size=1, nb_worker=1)
         else:
-            self.model.fit_generator(utils.generate_vector_batch(Xtrain, ytrain, self.embed.get_weights()[0], total_len, batch_size),
-                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], nb_val_samples=100,
-                                     verbose=1, max_q_size=1, nb_worker=1,
-                                     validation_data=utils.generate_vector_batch(Xval, yval, self.embed.get_weights()[0], 100, 1))
+            self.model.fit_generator(
+                utils.generate_vector_batch(Xtrain, ytrain, self.embed.get_weights()[0], total_len, batch_size),
+                samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback], nb_val_samples=100,
+                verbose=1, max_q_size=1, nb_worker=1,
+                validation_data=utils.generate_vector_batch(Xval, yval, self.embed.get_weights()[0], 100, 1))
 
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
@@ -111,8 +116,9 @@ class LSTMEncDec:
 class LSTMEncDec2(LSTMEncDec):
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy',
-                 directory='.'):
+                 directory='.', decoder_type=0):
         self.batch_size = 0
+        self.decoder_type = decoder_type
         super().__init__(word_vec, word_to_index, index_to_word, weight_file, enc_layer_output,
                          dec_layer_output, learning_rate, sequence_len, loss, directory)
 
@@ -135,31 +141,51 @@ class LSTMEncDec2(LSTMEncDec):
 
         # Configure decoder network with the given output sizes.
         # Layer connecting to encoder output
-        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
-                              name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
-        for dl in self.dec_layer_output[1:]:
-            self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
+        if self.decoder_type == 0:
+            self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
+                                  name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
+            for dl in self.dec_layer_output[1:]:
+                self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
+        elif self.decoder_type == 1:
+            container = RecurrentContainer(readout=True, return_sequences=True,
+                                           output_length=self.dec_layer_output[-1])
+            container.add(LSTMDecoderCell(output_dim=self.dec_layer_output[0],
+                                          hidden_dim=self.dec_layer_output[0],
+                                          input_dim=self.enc_layer_output[-1]))
+            for dl in self.dec_layer_output[1:]:
+                container.add(LSTMCell(output_dim=dl))
+            container.add(LSTMCell(output_dim=self.enc_layer_output[-1]))  # Output must be compatible with input for merging
+            self.decoder.add(container)
+        else:
+            raise ValueError('Invalid decoder type.')
+
         # Final layer outputting a word distribution
         self.decoder.add(TimeDistributed(Dense(len(self.index_to_word), activation='softmax')))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
 
     def compile(self, learning_rate, loss):
-        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=[self.categorical_accuracy], sample_weight_mode='temporal')
+        self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=[self.categorical_accuracy],
+                           sample_weight_mode='temporal')
 
-    def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10, queries=None):
+    def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10,
+              queries=None):
         self.batch_size = batch_size
         callback = EncDecCallback(self, queries, True)
         logger = CSVLogger(self.directory + '/epochs.csv')
         nb_class = len(self.index_to_word)
         total_len = np.size(ytrain, 0)
         if Xval is None or yval is None:
-            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size), samples_per_epoch=total_len,
-                                     nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1, max_q_size=1, nb_worker=1)
+            self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
+                                     samples_per_epoch=total_len,
+                                     nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1, max_q_size=1,
+                                     nb_worker=1)
         else:
             self.model.fit_generator(utils.generate_batch(Xtrain, ytrain, train_mask, nb_class, total_len, batch_size),
-                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback, logger], verbose=1,
-                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, Xval.shape[0], batch_size),
+                                     samples_per_epoch=total_len, nb_epoch=nb_epoch, callbacks=[callback, logger],
+                                     verbose=1,
+                                     validation_data=utils.generate_batch(Xval, yval, val_mask, nb_class, Xval.shape[0],
+                                                                          batch_size),
                                      max_q_size=1, nb_worker=1, nb_val_samples=Xval.shape[0])
 
     def generate_response(self, query):
