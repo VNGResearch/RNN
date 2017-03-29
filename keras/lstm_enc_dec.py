@@ -22,13 +22,14 @@ from functools import reduce
 class LSTMEncDec:
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='mean_squared_error',
-                 directory='.'):
+                 directory='.', decoder_type=0):
         self.word_to_index = word_to_index
         self.index_to_word = index_to_word
         self.sequence_len = sequence_len
         self.directory = directory
         self.enc_layer_output = enc_layer_output
         self.dec_layer_output = dec_layer_output
+        self.decoder_type = decoder_type
         self.encoder = Sequential()
         self.decoder = Sequential()
 
@@ -118,9 +119,8 @@ class LSTMEncDec2(LSTMEncDec):
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, loss='categorical_crossentropy',
                  directory='.', decoder_type=0):
         self.batch_size = 0
-        self.decoder_type = decoder_type
         super().__init__(word_vec, word_to_index, index_to_word, weight_file, enc_layer_output,
-                         dec_layer_output, learning_rate, sequence_len, loss, directory)
+                         dec_layer_output, learning_rate, sequence_len, loss, directory, decoder_type)
 
     def config_processing(self, word_vec):
         self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),

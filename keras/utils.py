@@ -45,7 +45,8 @@ def save_model(model, alt=False):
     config = {'enc_layer': model.enc_layer_output,
               'dec_layer': model.dec_layer_output,
               'seq_len': model.sequence_len,
-              'word_vec_dim': np.shape(word_vec)}
+              'word_vec_dim': np.shape(word_vec),
+              'decoder_type': model.decoder_type}
     pickle.dump(config, open(f2, 'wb'), pickle.HIGHEST_PROTOCOL)
 
     np.savez(f3, wit=model.word_to_index, itw=model.index_to_word,
@@ -68,7 +69,7 @@ def load_model(directory, m_class):
         print('Done.')
         return m_class(word_vec, word_to_index, index_to_word, weight_file=f1,
                        enc_layer_output=config['enc_layer'], dec_layer_output=config['dec_layer'],
-                       sequence_len=config['seq_len'])
+                       sequence_len=config['seq_len'], decoder_type=config.get('decoder_type', 0))
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
         sys.exit()
