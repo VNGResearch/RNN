@@ -69,7 +69,8 @@ def load_model(directory, m_class):
         print('Done.')
         return m_class(word_vec, word_to_index, index_to_word, weight_file=f1,
                        enc_layer_output=config['enc_layer'], dec_layer_output=config['dec_layer'],
-                       sequence_len=config['seq_len'], decoder_type=config.get('decoder_type', 0))
+                       sequence_len=config['seq_len'], decoder_type=config.get('decoder_type', 0),
+                       directory=directory)
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
         sys.exit()

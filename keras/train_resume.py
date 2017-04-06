@@ -11,7 +11,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument('-m', '--model', dest='md', required=True,
                         help='The path to the model directory')
-    parser.add_argument('-q', '--queries', dest='queries', required=False, default=None,
+    parser.add_argument('-q', '--queries', dest='queries', required=False, default='queries.txt',
                         help='The text file containing queries. If not set, runs in shell mode')
     parser.add_argument('-c', '--class', dest='cls_idx', required=False, default='1',
                         help='The model class. Values: 1 (Word-vector based model), 2 (Probability model). Defaults to 1.')
