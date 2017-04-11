@@ -7,18 +7,6 @@ SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
 MASK_TOKEN = 'MASK_TOKEN'
 DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
-ALT_DIRECTORY = './models/LSTM2_%s' % datetime.date.today().isoformat()
-
-
-def log(string='', out=True, alt=False):
-    if not alt:
-        f = open(DIRECTORY + '/log.txt', mode='at')
-    else:
-        f = open(ALT_DIRECTORY + '/log.txt', mode='at')
-    if out:
-        print(string)
-    print(string, file=f)
-    f.close()
 
 
 def nearest_vector(array, value):
@@ -29,11 +17,8 @@ def nearest_vector_index(array, value):
     return np.sum(np.abs(array-value), axis=1).argmin()
 
 
-def save_model(model, alt=False):
-    if alt:
-        directory = ALT_DIRECTORY
-    else:
-        directory = DIRECTORY
+def save_model(model):
+    directory = DIRECTORY
 
     f1 = directory + '/weights.hdf5'
     f2 = directory + '/config.pkl'
@@ -46,7 +31,8 @@ def save_model(model, alt=False):
               'dec_layer': model.dec_layer_output,
               'seq_len': model.sequence_len,
               'word_vec_dim': np.shape(word_vec),
-              'decoder_type': model.decoder_type}
+              'decoder_type': model.decoder_type,
+              'out_type': model.out_type}
     pickle.dump(config, open(f2, 'wb'), pickle.HIGHEST_PROTOCOL)
 
     np.savez(f3, wit=model.word_to_index, itw=model.index_to_word,
@@ -70,13 +56,13 @@ def load_model(directory, m_class):
         return m_class(word_vec, word_to_index, index_to_word, weight_file=f1,
                        enc_layer_output=config['enc_layer'], dec_layer_output=config['dec_layer'],
                        sequence_len=config['seq_len'], decoder_type=config.get('decoder_type', 0),
-                       directory=directory)
+                       out_type=config.get('out_type', 1), directory=directory)
     except FileNotFoundError:
         print('One or more model files cannot be found. Terminating...')
         sys.exit()
 
 
-def generate_batch(Xtrain, ytrain, mask, nb_class, total_len, batch_size=10):
+def generate_batch(Xtrain, ytrain, word_vec, mask, nb_class, total_len, batch_size=10):
     while True:
         for i in range(0, total_len, batch_size):
             yt = to_hot_coded(ytrain[i:i + batch_size], nb_class)
@@ -85,12 +71,13 @@ def generate_batch(Xtrain, ytrain, mask, nb_class, total_len, batch_size=10):
             yield (Xt, yt, msk)
 
 
-def generate_vector_batch(Xtrain, ytrain, word_vec, total_len, batch_size=10):
+def generate_vector_batch(Xtrain, ytrain, word_vec, mask, nb_class, total_len, batch_size=10):
     while True:
         for i in range(0, total_len, batch_size):
             yt = to_vector(ytrain[i:i + batch_size], word_vec)
             Xt = Xtrain[i:i + batch_size]
-            yield (Xt, yt)
+            msk = mask[i:i + batch_size]
+            yield (Xt, yt, msk)
 
 
 def to_hot_coded(y, nb_classes):

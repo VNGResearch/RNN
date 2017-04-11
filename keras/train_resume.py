@@ -2,7 +2,7 @@ import gc
 
 from data_utils import *
 from lstm_enc_dec import *
-from settings_alt import *
+from settings import *
 from argparse import ArgumentParser
 
 
@@ -12,8 +12,6 @@ def parse_args():
                         help='The path to the model directory')
     parser.add_argument('-q', '--queries', dest='queries', required=False, default='queries.txt',
                         help='The text file containing queries. If not set, runs in shell mode')
-    parser.add_argument('-c', '--class', dest='cls_idx', required=False, default='1',
-                        help='The model class. Values: 1 (Word-vector based model), 2 (Probability model). Defaults to 1.')
     parser.add_argument('-d', '--dataset', dest='ds', required=False, default='opensub',
                         help='The training dataset to be used. Defaults to the OpenSubtitle dataset. Values: opensub, shakespeare, yahoo')
     arg = parser.parse_args()
@@ -33,13 +31,12 @@ else:
     raise ValueError('Invalid dataset.')
 
 print('Loading model...')
-cls = LSTMEncDec if args.cls_idx == '1' else LSTMEncDec2
-model = utils.load_model(args.md, cls)
+model = utils.load_model(args.md, LSTMEncDec)
 
 X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(vocabulary_size=len(model.index_to_word),
                                                                             sample_size=DOC_COUNT,
                                                                             sequence_len=model.sequence_len,
-                                                                            vec_labels=False)
+                                                                            vec_labels=(model.out_type == 1))
 # Get queries
 with open(QUERY_FILE, 'rt') as f:
     queries = [q.rstrip() for q in f.readlines()]

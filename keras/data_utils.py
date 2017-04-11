@@ -292,7 +292,3 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
                         output_mask[i][k] = 0
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
-
-
-def remove_symbols(sentence):
-    return sentence
