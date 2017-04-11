@@ -32,10 +32,7 @@ class LSTMEncDec:
         self.decoder_type = decoder_type
         self.encoder = Sequential()
         self.decoder = Sequential()
-
-        # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
-        self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
-                               weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
+        self.embed = None
 
         input_layer, output_layer = self.config_processing(word_vec)
 
@@ -44,9 +41,16 @@ class LSTMEncDec:
             self.model.load_weights(weight_file)
         self.compile(learning_rate, loss)
 
+    '''
+    Creates the encoder-decoder structure and returns the symbolic input and output
+    '''
     def config_processing(self, word_vec):
         # Configure input layer
         input_layer = Input(shape=(self.sequence_len,), name='Input')
+
+        # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
+        self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
+                               weights=[word_vec], trainable=False, mask_zero=True, name='Embed')
 
         # Configure encoder network with the given output sizes.
         # Embedding for encoder only since decoder receives the question vector.
@@ -67,7 +71,6 @@ class LSTMEncDec:
             self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
         # Final layer outputting a sequence of word vectors
         self.decoder.add(TimeDistributed(Dense(np.size(word_vec, 1), activation='linear')))
-        # self.decoder.add(LSTM(np.size(word_vec, 1), return_sequences=True, consume_less='mem'))
         output_layer = self.decoder(question_vec)
         return input_layer, output_layer
 
@@ -94,6 +97,9 @@ class LSTMEncDec:
                 verbose=1, max_q_size=1, nb_worker=1,
                 validation_data=utils.generate_vector_batch(Xval, yval, self.embed.get_weights()[0], 100, 1))
 
+    '''
+        Pre-processes a raw query string and return a response string 
+    '''
     def generate_response(self, query):
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
         indices = [self.word_to_index[w] if w in self.word_to_index
@@ -147,6 +153,7 @@ class LSTMEncDec2(LSTMEncDec):
             for dl in self.dec_layer_output[1:]:
                 self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
         elif self.decoder_type == 1:
+            # Using recurrentshop's container with readout
             container = RecurrentContainer(readout=True, return_sequences=True,
                                            output_length=self.dec_layer_output[-1])
             container.add(LSTMDecoderCell(output_dim=self.dec_layer_output[0],
@@ -168,6 +175,10 @@ class LSTMEncDec2(LSTMEncDec):
         self.model.compile(optimizer=RMSprop(learning_rate), loss=loss, metrics=[self.categorical_accuracy],
                            sample_weight_mode='temporal')
 
+    '''
+    Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
+    See utils.generate_batch.
+    '''
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10,
               queries=None):
         self.batch_size = batch_size
@@ -208,6 +219,10 @@ class LSTMEncDec2(LSTMEncDec):
             response.append(word)
         return ' '.join(response)
 
+    '''
+    Custom ad-hoc categorical accuracy for masked output.
+    Dynamically detect masked characters and ignore them in calculation.
+    '''
     def categorical_accuracy(self, y_true, y_pred):
         p = self.word_to_index[utils.MASK_TOKEN]
         token = np.zeros((len(self.index_to_word)), dtype=np.float32)

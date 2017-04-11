@@ -1,4 +1,3 @@
-import utils
 import gc
 
 from data_utils import *
@@ -15,7 +14,7 @@ def parse_args():
                         help='The text file containing queries. If not set, runs in shell mode')
     parser.add_argument('-c', '--class', dest='cls_idx', required=False, default='1',
                         help='The model class. Values: 1 (Word-vector based model), 2 (Probability model). Defaults to 1.')
-    parser.add_argument('-d', '--dataset', dest='ds', required=True, default='opensub',
+    parser.add_argument('-d', '--dataset', dest='ds', required=False, default='opensub',
                         help='The training dataset to be used. Defaults to the OpenSubtitle dataset. Values: opensub, shakespeare, yahoo')
     arg = parser.parse_args()
     return arg
