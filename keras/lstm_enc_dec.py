@@ -222,3 +222,6 @@ class LSTMEncDec:
         length = K.variable(self.sequence_len)
         p = K.pow(K.variable(2), K.variable(0) - K.sum(T.log2(dist), axis=1)/length)
         return K.mean(p)
+
+    def bleu_score(self, y_true, y_pred):
+        pass

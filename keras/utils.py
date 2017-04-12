@@ -18,7 +18,7 @@ def nearest_vector_index(array, value):
 
 
 def save_model(model):
-    directory = DIRECTORY
+    directory = model.directory
 
     f1 = directory + '/weights.hdf5'
     f2 = directory + '/config.pkl'

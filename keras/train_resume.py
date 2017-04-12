@@ -28,7 +28,7 @@ elif args.ds == 'yahoo':
     loader = load_data_yahoo
     DOC_COUNT = DATA_SIZE
 else:
-    raise ValueError('Invalid dataset.')
+    raise ValueError('Invalid dataset %s.' % args.ds)
 
 print('Loading model...')
 model = utils.load_model(args.md, LSTMEncDec)
