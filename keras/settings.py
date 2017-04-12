@@ -12,4 +12,4 @@ BATCH_SIZE = 15
 
 # Structural settings
 OUTPUT_TYPE = 1
-DECODER_TYPE = 0
+DECODER_TYPE = 1

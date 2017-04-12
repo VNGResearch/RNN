@@ -113,7 +113,7 @@ class LSTMEncDec:
         if self.out_type == 0:
             metrics = ['mean_absolute_error']
         else:
-            metrics = [self.categorical_accuracy]
+            metrics = [self.categorical_acc]
         self.model.compile(optimizer=RMSprop(lr=learning_rate), loss=loss, metrics=metrics,
                            sample_weight_mode='temporal')
 
@@ -180,10 +180,10 @@ class LSTMEncDec:
         return ' '.join(response)
 
     """
-    Custom ad-hoc categorical accuracy for masked output.
+    Custom ad-hoc categorical accuracy for masked output (requires Theano backend).
     Dynamically detects masked characters and ignores them in calculation.
     """
-    def categorical_accuracy(self, y_true, y_pred):
+    def categorical_acc(self, y_true, y_pred):
         p = self.word_to_index[utils.MASK_TOKEN]
         token = np.zeros((len(self.index_to_word)), dtype=np.float32)
         token[p] = 1

@@ -32,7 +32,7 @@ def load_embedding(vocabulary_size):
     return embed_layer, word_to_index, index_to_word
 
 
-def load_data_yahoo(filename="data/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
     print("Reading JSON file (%s) ..." % filename)
     questions = []
     answers = []
