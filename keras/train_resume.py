@@ -36,7 +36,7 @@ model = utils.load_model(args.md, LSTMEncDec)
 X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(vocabulary_size=len(model.index_to_word),
                                                                             sample_size=DOC_COUNT,
                                                                             sequence_len=model.sequence_len,
-                                                                            vec_labels=(model.out_type == 1))
+                                                                            vec_labels=(model.out_type == 0))
 # Get queries
 with open(QUERY_FILE, 'rt') as f:
     queries = [q.rstrip() for q in f.readlines()]

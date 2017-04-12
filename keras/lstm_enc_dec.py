@@ -113,7 +113,7 @@ class LSTMEncDec:
         if self.out_type == 0:
             metrics = ['mean_absolute_error']
         else:
-            metrics = [self.categorical_acc]
+            metrics = [self.categorical_acc, self.perplexity]
         self.model.compile(optimizer=RMSprop(lr=learning_rate), loss=loss, metrics=metrics,
                            sample_weight_mode='temporal')
 
@@ -216,3 +216,9 @@ class LSTMEncDec:
             print(string)
         print(string, file=f)
         f.close()
+
+    def perplexity(self, y_true, y_pred):
+        dist = K.sum(y_true * y_pred, axis=2)
+        length = K.variable(self.sequence_len)
+        p = K.pow(K.variable(2), K.variable(0) - K.sum(T.log2(dist), axis=1)/length)
+        return K.mean(p)
