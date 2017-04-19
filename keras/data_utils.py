@@ -4,10 +4,34 @@ import os
 import random
 import untangle
 import numpy as np
+import csv
+import ast
+
 from glove import Glove
 from utils import *
 
 EMBEDDING_PATH = 'data/glove.6B.100d.txt'
+
+
+def get_loader(dataset):
+    switch = False
+
+    if dataset == 'opensub':
+        loader = load_data_opensub
+    elif dataset == 'shakespeare':
+        loader = load_data_shakespeare
+    elif dataset == 'yahoo':
+        loader = load_data_yahoo
+        switch = True
+    elif dataset == 'southpark':
+        loader = load_data_southpark
+        switch = True
+    elif dataset == 'cornell':
+        loader = load_data_cornell
+        switch = True
+    else:
+        raise ValueError('Invalid dataset %s.' % dataset)
+    return loader, switch
 
 
 def load_embedding(vocabulary_size):
@@ -32,103 +56,9 @@ def load_embedding(vocabulary_size):
     return embed_layer, word_to_index, index_to_word
 
 
-def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
-    print("Reading JSON file (%s) ..." % filename)
-    questions = []
-    answers = []
-    with open(filename, 'r') as f:
-        data = json.load(f)
-        if sample_size is not None:
-            data = random.sample(data, sample_size)
-        for qa in data:
-            questions.append("%s" % qa['question'].lower())
-            answers.append("%s %s" % (qa['answer'].lower(), SENTENCE_END_TOKEN))
-
-    print("Tokenizing...")
-    tokenized_questions = [nltk.word_tokenize(sent) for sent in questions]
-    tokenized_answers = [nltk.word_tokenize(sent) for sent in answers]
-    print("Parsed %d exchanges." % (len(tokenized_questions)))
-
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
+def replace_unknown(raw_x, raw_y, word_to_index):
     # Replace all words not in our vocabulary with the unknown token
     # Keep track of the unknown token ratio
-    unk_count = 0.0
-    total = 0.0
-    for i, sent in enumerate(tokenized_questions):
-        idx = 0
-        for w in sent:
-            if w in word_to_index:
-                nw = w
-            else:
-                nw = UNKNOWN_TOKEN
-                unk_count += 1.0
-            total += 1.0
-            tokenized_questions[i][idx] = nw
-            idx += 1
-    for i, sent in enumerate(tokenized_answers):
-        idx = 0
-        for w in sent:
-            if w in word_to_index:
-                nw = w
-            else:
-                nw = UNKNOWN_TOKEN
-                unk_count += 1.0
-            total += 1.0
-            tokenized_answers[i][idx] = nw
-            idx += 1
-    print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
-    print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
-
-    # Create the training data
-    print('Generating data...')
-    X_train = np.zeros((len(tokenized_questions), sequence_len), dtype=np.int32)
-    for i in range(len(tokenized_questions)):
-        for j in range(len(tokenized_questions[i])):
-            X_train[i][j] = word_to_index[tokenized_questions[i][j]]
-
-    if vec_labels:
-        y_train = np.zeros((len(tokenized_answers), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
-        for i in range(len(tokenized_answers)):
-            for j in range(len(tokenized_answers[i])):
-                y_train[i][j] = embed_layer[word_to_index[tokenized_answers[i][j]]]
-    else:
-        y_train = np.zeros((len(tokenized_answers), sequence_len), dtype=np.float32)
-        for i in range(len(tokenized_answers)):
-            for j in range(len(tokenized_answers[i])):
-                p = word_to_index[tokenized_answers[i][j]]
-                y_train[i][j] = p
-
-    return X_train, y_train, word_to_index, index_to_word, embed_layer
-
-
-def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
-    print('Reading TXT files...')
-    raw_x, raw_y = [], []
-    fl = os.listdir(path)
-    if sample_size is not None:
-        np.random.shuffle(fl)
-        fl = fl[:sample_size]
-
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
-    samples = []
-    print('Tokenizing...')
-    for fn in fl:
-        print('<<%s>>' % fn)
-        f = open(path + '/' + fn, 'rt')
-        lines = f.readlines()
-        samples.append(lines[random.randint(0, len(lines)-1)].rstrip())
-        for i, l in enumerate(lines[:-1]):
-            l1 = nltk.word_tokenize(l.rstrip().lower())[:sequence_len]
-            l2 = nltk.word_tokenize(lines[i+1].rstrip().lower())[:sequence_len-1]
-            l2.append(SENTENCE_END_TOKEN)
-            raw_x.append(l1)
-            raw_y.append(l2)
-    print("Parsed %s exchanges." % (len(raw_x)))
-
     unk_count = 0.0
     total = 0.0
     for i, sent in enumerate(raw_x):
@@ -156,6 +86,10 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
     print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
 
+    return raw_x, raw_y
+
+
+def generate_data(raw_x, raw_y, sequence_len, embed_layer, word_to_index, vec_labels):
     print('Generating data...')
     X_train = np.zeros((len(raw_x), sequence_len), dtype=np.int32)
     for i in range(len(raw_x)):
@@ -175,9 +109,71 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
                 p = word_to_index[raw_y[i][j]]
                 y_train[i][j] = p
                 if raw_y[i][j] == SENTENCE_END_TOKEN:
-                    # output_mask[i][j] = 1.5
-                    for k in range(j+1,sequence_len):
+                    for k in range(j + 1, sequence_len):
                         output_mask[i][k] = 0
+
+    return X_train, y_train, output_mask
+
+
+def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+    print("Reading JSON file (%s) ..." % filename)
+    questions = []
+    answers = []
+    with open(filename, 'r') as f:
+        data = json.load(f)
+        if sample_size is not None:
+            data = random.sample(data, sample_size)
+        for qa in data:
+            questions.append("%s" % qa['question'].lower())
+            answers.append("%s %s" % (qa['answer'].lower(), SENTENCE_END_TOKEN))
+
+    print("Tokenizing...")
+    tokenized_questions = [nltk.word_tokenize(sent) for sent in questions]
+    tokenized_answers = [nltk.word_tokenize(sent) for sent in answers]
+    print("Parsed %d exchanges." % (len(tokenized_questions)))
+
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    tokenized_questions, tokenized_answers = replace_unknown(tokenized_answers, tokenized_questions, word_to_index)
+
+    # Create the training data
+    print('Generating data...')
+    X_train, y_train, output_mask = generate_data(tokenized_questions, tokenized_answers, sequence_len,
+                                                  embed_layer, word_to_index, vec_labels)
+
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, [], output_mask
+
+
+def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True):
+    raw_x, raw_y = [], []
+    fl = os.listdir(path)
+    if sample_size is not None:
+        np.random.shuffle(fl)
+        fl = fl[:sample_size]
+
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    samples = []
+    print('Tokenizing...')
+    for fn in fl:
+        print('Reading %s...' % fn)
+        f = open(path + '/' + fn, 'rt')
+        lines = f.readlines()
+        samples.append(lines[random.randint(0, len(lines)-1)].rstrip())
+        for i, l in enumerate(lines[:-1]):
+            l1 = nltk.word_tokenize(l.rstrip().lower())[:sequence_len]
+            l2 = nltk.word_tokenize(lines[i+1].rstrip().lower())[:sequence_len-1]
+            l2.append(SENTENCE_END_TOKEN)
+            raw_x.append(l1)
+            raw_y.append(l2)
+    print("Parsed %s exchanges." % (len(raw_x)))
+
+    raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
+
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
 
@@ -218,7 +214,6 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
         assert len(q) == len(a)
         return q, a
 
-    print('Reading XML files...')
     raw_x, raw_y = [], []
     fl = os.listdir(path)
 
@@ -233,7 +228,7 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
     for fn in fl:
         if not fn.endswith('.xml'):
             continue
-        print('<<%s>>' % fn)
+        print('Reading %s...' % fn)
         rx, ry = load_play(path + '/' + fn)
         raw_x.extend(rx)
         raw_y.extend(ry)
@@ -241,54 +236,97 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
     samples = []
     print("Parsed %s exchanges." % (len(raw_x)))
 
-    unk_count = 0.0
-    total = 0.0
-    for i, sent in enumerate(raw_x):
-        idx = 0
-        for w in sent:
-            if w in word_to_index:
-                nw = w
-            else:
-                nw = UNKNOWN_TOKEN
-                unk_count += 1.0
-            total += 1.0
-            raw_x[i][idx] = nw
-            idx += 1
-    for i, sent in enumerate(raw_y):
-        idx = 0
-        for w in sent:
-            if w in word_to_index:
-                nw = w
-            else:
-                nw = UNKNOWN_TOKEN
-                unk_count += 1.0
-            total += 1.0
-            raw_y[i][idx] = nw
-            idx += 1
-    print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
-    print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
+    raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
 
-    print('Generating data...')
-    X_train = np.zeros((len(raw_x), sequence_len), dtype=np.int32)
-    for i in range(len(raw_x)):
-        for j in range(len(raw_x[i])):
-            X_train[i][j] = word_to_index[raw_x[i][j]]
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
 
-    output_mask = np.ones((len(raw_y), sequence_len), dtype=np.float32)
-    if vec_labels:
-        y_train = np.zeros((len(raw_y), sequence_len, np.size(embed_layer, 1)), dtype=np.float32)
-        for i in range(len(raw_y)):
-            for j in range(len(raw_y[i])):
-                y_train[i][j] = embed_layer[word_to_index[raw_y[i][j]]]
-    else:
-        y_train = np.zeros((len(raw_y), sequence_len), dtype=np.float32)
-        for i in range(len(raw_y)):
-            for j in range(len(raw_y[i])):
-                p = word_to_index[raw_y[i][j]]
-                y_train[i][j] = p
-                if raw_y[i][j] == SENTENCE_END_TOKEN:
-                    # output_mask[i][j] = 1.5
-                    for k in range(j + 1, sequence_len):
-                        output_mask[i][k] = 0
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+
+
+def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2000, sample_size=None,
+                        sequence_len=2000, vec_labels=True, character=None):
+    print("Reading CSV file (%s) ..." % path)
+    f = open(path, mode='rt', newline='')
+    reader = csv.reader(f, delimiter=',', quotechar='"')
+    rows = []
+    for row in reader:
+        rows.append(row)
+    f.close()
+
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    samples = []
+
+    print('Tokenizing...')
+    season, ep = rows[0][0], rows[0][1]
+    prev_line = rows[0][3]
+    raw_x, raw_y = [], []
+    for r in rows[1:]:
+        ss, e, ch, line = r[0], r[1], r[2], r[3]
+        if character is not None and ch != character:
+            prev_line = line
+            continue
+        if season != ss or ep != e:
+            print('Season %s ep %s' % (season, ep))
+            samples.append(line)
+            season = ss
+            ep = e
+            continue
+
+        l1 = nltk.word_tokenize(prev_line.lower().strip())[:sequence_len]
+        l2 = nltk.word_tokenize(line.lower().strip())[:sequence_len-1]
+        l2.append(SENTENCE_END_TOKEN)
+        raw_x.append(l1)
+        raw_y.append(l2)
+        if sample_size is not None and len(raw_x) >= sample_size:
+            break
+        prev_line = line
+
+    print("Parsed %s exchanges." % (len(raw_x)))
+
+    raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
+
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
+
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+
+
+def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus', vocabulary_size=2000, sample_size=None,
+                      sequence_len=2000, vec_labels=True):
+    print('Reading TXT file (%s)' % path)
+    f1 = open(path + '/movie_lines.txt', mode='rt', encoding='cp437')
+    f2 = open(path + '/movie_conversations.txt', mode='rt')
+    lines = f1.readlines()
+    convs = f2.readlines()
+    f1.close(), f2.close()
+
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    samples = []
+    raw_x, raw_y = [], []
+    id_to_lines = {}
+    for line in lines:
+        fields = line[:-1].split(' +++$+++ ')
+        id_to_lines[fields[0]] = fields[-1]
+
+    print('Tokenizing...')
+    for conv in convs:
+        expr = conv[:-1].split(' +++$+++ ')[-1]
+        lns = ast.literal_eval(expr)
+        tlns = [nltk.word_tokenize(id_to_lines[l].lower().strip()) for l in lns]
+        for i in range(len(tlns)-1):
+            raw_x.append(tlns[i][:sequence_len])
+            raw_y.append(tlns[i+1][:sequence_len-1])
+
+        if sample_size is not None and len(raw_x) >= sample_size:
+            break
+
+    raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
 
     return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask

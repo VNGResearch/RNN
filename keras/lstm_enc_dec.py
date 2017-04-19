@@ -90,9 +90,8 @@ class LSTMEncDec:
             # Using recurrentshop's container with readout
             container = RecurrentContainer(readout=True, return_sequences=True,
                                            output_length=self.dec_layer_output[-1])
-            container.add(LSTMDecoderCell(output_dim=self.dec_layer_output[0],
-                                          hidden_dim=self.dec_layer_output[0],
-                                          input_dim=self.enc_layer_output[-1]))
+            container.add(LSTMCell(output_dim=self.dec_layer_output[0],
+                                   input_dim=self.enc_layer_output[-1]))
             for dl in self.dec_layer_output[1:]:
                 container.add(LSTMCell(output_dim=dl))
             container.add(LSTMCell(output_dim=self.enc_layer_output[-1]))  # Output must be compatible with input for merging
@@ -113,13 +112,13 @@ class LSTMEncDec:
         if self.out_type == 0:
             metrics = ['mean_absolute_error']
         else:
-            metrics = [self.categorical_acc, self.perplexity]
+            metrics = [self.categorical_acc]
         self.model.compile(optimizer=RMSprop(lr=learning_rate), loss=loss, metrics=metrics,
                            sample_weight_mode='temporal')
 
     """
     Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
-    See utils.generate_batch.
+    See utils.generate_batch().
     """
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10,
               queries=None):
@@ -180,6 +179,43 @@ class LSTMEncDec:
         return ' '.join(response)
 
     """
+    Generates a list of top candidates for each word position given a raw string query.
+    Only applies for softmax model.
+    """
+    def generate_candidates(self, query, top=3):
+        tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
+        indices = [self.word_to_index[w] if w in self.word_to_index
+                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
+        indices.extend([0] * (self.sequence_len - len(indices)))
+        indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
+        output = self.model.predict(indices, batch_size=1, verbose=0)
+        vectors = self.embed.get_weights()[0]
+        response, candidates = [], []
+
+        if self.out_type == 0:
+            for word_vec in output[0]:
+                word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec)]
+                if word == utils.MASK_TOKEN:
+                    continue
+                elif word == utils.SENTENCE_END_TOKEN:
+                    break
+                response.append(word)
+        else:
+            out_idx = utils.k_largest_idx(output, top)
+            # noinspection PyTypeChecker
+            for ca in out_idx[0]:
+                word = self.index_to_word[ca[0]]
+                if word == utils.MASK_TOKEN:
+                    continue
+                elif word == utils.SENTENCE_END_TOKEN:
+                    response.append(word)
+                    break
+                response.append(word)
+                candidates.append([self.index_to_word[c] for c in ca])
+
+        return ' '.join(response), candidates
+
+    """
     Custom ad-hoc categorical accuracy for masked output (requires Theano backend).
     Dynamically detects masked characters and ignores them in calculation.
     """
@@ -225,3 +261,4 @@ class LSTMEncDec:
 
     def bleu_score(self, y_true, y_pred):
         pass
+

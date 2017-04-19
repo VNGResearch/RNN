@@ -96,3 +96,7 @@ def to_vector(y, word_vec):
             yt[i][j] = word_vec[int(y[i][j])]
 
     return yt
+
+
+def k_largest_idx(array3d, k):
+    return np.argsort(array3d)[:, :, ::-1][:, :, :k]

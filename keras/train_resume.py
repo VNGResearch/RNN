@@ -20,15 +20,9 @@ def parse_args():
 
 args = parse_args()
 
-if args.ds == 'opensub':
-    loader = load_data_opensub
-elif args.ds == 'shakespeare':
-    loader = load_data_shakespeare
-elif args.ds == 'yahoo':
-    loader = load_data_yahoo
+loader, switch = get_loader(args.ds)
+if switch:
     DOC_COUNT = DATA_SIZE
-else:
-    raise ValueError('Invalid dataset %s.' % args.ds)
 
 print('Loading model...')
 model = utils.load_model(args.md, LSTMEncDec)

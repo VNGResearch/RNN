@@ -1,14 +1,15 @@
-LEARNING_RATE = 0.002
-VOCABULARY_SIZE = 10000
-N_EPOCH = 1
+LEARNING_RATE = 0.001
+VOCABULARY_SIZE = 50000
+N_EPOCH = 150
 QUERY_FILE = './queries.txt'
-SEQUENCE_LENGTH = 45
-ENCODER_OUTPUTS = (1024,)
-DECODER_OUTPUTS = (1024, 512,)
-DATA_SIZE = 200  # Number of conversations to extract from yahoo dataset
+SEQUENCE_LENGTH = 50
+ENCODER_OUTPUTS = (1200, 1000, )
+DECODER_OUTPUTS = (1000,)
+DATA_SIZE = 500  # Number of conversations to extract from yahoo, cornell or southpark dataset
 DOC_COUNT = 1  # Number of documents to extract from opensub or shakespeare dataset
-VAL_SPLIt = 10  # Number of validation samples
+VAL_SPLIt = 20  # Number of validation samples to be taken from training set
 BATCH_SIZE = 15
+DATASET = 'southpark'
 
 # Structural settings
 OUTPUT_TYPE = 1

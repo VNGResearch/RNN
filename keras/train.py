@@ -7,11 +7,15 @@ from lstm_enc_dec import LSTMEncDec
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
 
+loader, switch = get_loader(DATASET)
+if switch:
+    DOC_COUNT = DATA_SIZE
+
 # Get training and test data
-X, y, word_to_index, index_to_word, word_vec, samples, output_mask = load_data_opensub(vocabulary_size=VOCABULARY_SIZE,
-                                                                                       sample_size=DOC_COUNT,
-                                                                                       sequence_len=SEQUENCE_LENGTH,
-                                                                                       vec_labels=(OUTPUT_TYPE == 0))
+X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(vocabulary_size=VOCABULARY_SIZE,
+                                                                            sample_size=DOC_COUNT,
+                                                                            sequence_len=SEQUENCE_LENGTH,
+                                                                            vec_labels=(OUTPUT_TYPE == 0))
 X_val = X[:VAL_SPLIt]
 X_train = X[VAL_SPLIt:]
 y_val = y[:VAL_SPLIt]
