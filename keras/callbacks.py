@@ -14,7 +14,8 @@ class EncDecCallback(Callback):
         print()
         utils.save_model(self.enc_dec)
         print('Logging responses')
+        self.enc_dec.log('Epoch %s:\n' % epoch, out=False)
         for query in self.queries:
-            response = self.enc_dec.generate_response(query)
-            self.enc_dec.log('Q: %s\nA: %s\n' % (query, response), out=False)
+            response, candidates = self.enc_dec.generate_candidates(query)
+            self.enc_dec.log('Q: %s\nA: %s\n%s\n' % (query, response, candidates), out=False)
         gc.collect()

@@ -75,12 +75,13 @@ class LSTMEncDec:
         for el in self.enc_layer_output[:-1]:
             self.encoder.add(LSTM(el, return_sequences=True, consume_less='mem'))
         self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
-        self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
+        # self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
         # Encoder outputs the question vector as a tensor with with each time-step output being the final question vector
         question_vec = self.encoder(input_layer)
 
         # Configure decoder network with the given output sizes.
         # Layer connecting to encoder output
+        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
         if self.decoder_type == 0:
             self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
                                   name='ConnectorLSTM', return_sequences=True, consume_less='mem'))

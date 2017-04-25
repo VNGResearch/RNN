@@ -319,8 +319,11 @@ def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus',
         lns = ast.literal_eval(expr)
         tlns = [nltk.word_tokenize(id_to_lines[l].lower().strip()) for l in lns]
         for i in range(len(tlns)-1):
-            raw_x.append(tlns[i][:sequence_len])
-            raw_y.append(tlns[i+1][:sequence_len-1])
+            x = tlns[i][:sequence_len]
+            y = tlns[i+1][:sequence_len-1]
+            y.append(SENTENCE_END_TOKEN)
+            raw_x.append(x)
+            raw_y.append(y)
 
         if sample_size is not None and len(raw_x) >= sample_size:
             break
