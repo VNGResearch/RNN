@@ -85,6 +85,7 @@ def replace_unknown(raw_x, raw_y, word_to_index):
             idx += 1
     print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
     print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
+    print("Parsed %s exchanges." % (len(raw_x)))
 
     return raw_x, raw_y
 
@@ -115,7 +116,22 @@ def generate_data(raw_x, raw_y, sequence_len, embed_layer, word_to_index, vec_la
     return X_train, y_train, output_mask
 
 
-def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+def generate_lm_labels(x, word_to_index):
+    ends = np.zeros((np.size(x, 0), 1))
+    y = np.hstack((x[:, 1:], ends))
+
+    for i in range(np.size(y, 0)):
+        for j in range(1, np.size(y, 1)):
+            if x[i][j] == word_to_index[MASK_TOKEN]:
+                y[i][j-1] = word_to_index[SENTENCE_END_TOKEN]
+                break
+
+    msk_func = np.vectorize(lambda a: 0 if a == word_to_index[MASK_TOKEN] else 1)
+    output_mask = msk_func(y)
+    return y, output_mask
+
+
+def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True, **kwargs):
     print("Reading JSON file (%s) ..." % filename)
     questions = []
     answers = []
@@ -130,7 +146,6 @@ def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sampl
     print("Tokenizing...")
     tokenized_questions = [nltk.word_tokenize(sent) for sent in questions]
     tokenized_answers = [nltk.word_tokenize(sent) for sent in answers]
-    print("Parsed %d exchanges." % (len(tokenized_questions)))
 
     print("Using vocabulary size %d." % vocabulary_size)
     embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
@@ -145,7 +160,7 @@ def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sampl
     return X_train, y_train, word_to_index, index_to_word, embed_layer, [], output_mask
 
 
-def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True):
+def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True, **kwargs):
     raw_x, raw_y = [], []
     fl = os.listdir(path)
     if sample_size is not None:
@@ -168,7 +183,6 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
             l2.append(SENTENCE_END_TOKEN)
             raw_x.append(l1)
             raw_y.append(l2)
-    print("Parsed %s exchanges." % (len(raw_x)))
 
     raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
 
@@ -178,7 +192,7 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
 
 
-def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True):
+def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True, **kwargs):
     def load_play(file_path):
         play = untangle.parse(file_path)
         acts = play.PLAY.ACT
@@ -234,7 +248,6 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
         raw_y.extend(ry)
 
     samples = []
-    print("Parsed %s exchanges." % (len(raw_x)))
 
     raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
 
@@ -245,7 +258,7 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
 
 
 def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2000, sample_size=None,
-                        sequence_len=2000, vec_labels=True, character=None):
+                        sequence_len=2000, vec_labels=True, **kwargs):
     print("Reading CSV file (%s) ..." % path)
     f = open(path, mode='rt', newline='')
     reader = csv.reader(f, delimiter=',', quotechar='"')
@@ -258,6 +271,7 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
     embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
 
     samples = []
+    character = kwargs.get('character', None)
 
     print('Tokenizing...')
     season, ep = rows[0][0], rows[0][1]
@@ -284,8 +298,6 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
             break
         prev_line = line
 
-    print("Parsed %s exchanges." % (len(raw_x)))
-
     raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
 
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
@@ -295,7 +307,7 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
 
 
 def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus', vocabulary_size=2000, sample_size=None,
-                      sequence_len=2000, vec_labels=True):
+                      sequence_len=2000, vec_labels=True, **kwargs):
     print('Reading TXT file (%s)' % path)
     f1 = open(path + '/movie_lines.txt', mode='rt', encoding='cp437')
     f2 = open(path + '/movie_conversations.txt', mode='rt')

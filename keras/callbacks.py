@@ -19,3 +19,12 @@ class EncDecCallback(Callback):
             response, candidates = self.enc_dec.generate_candidates(query)
             self.enc_dec.log('Q: %s\nA: %s\n%s\n' % (query, response, candidates), out=False)
         gc.collect()
+
+
+class LangModelCallback(Callback):
+    def __init__(self, lang_model):
+        self.lang_model = lang_model
+
+    def on_epoch_end(self, epoch, logs={}):
+        print()
+        self.lang_model.save()

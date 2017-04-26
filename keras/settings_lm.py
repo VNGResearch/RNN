@@ -1,0 +1,10 @@
+LEARNING_RATE = 0.001
+VOCABULARY_SIZE = 10000
+N_EPOCH = 10
+SEQUENCE_LENGTH = 50
+OUTPUTS = (1000,)
+DATA_SIZE = 1000  # Number of conversations to extract from yahoo, cornell or southpark dataset
+DOC_COUNT = 1  # Number of documents to extract from opensub or shakespeare dataset
+VAL_SPLIt = 20  # Number of validation samples to be taken from training set
+BATCH_SIZE = 10
+DATASET = 'cornell'

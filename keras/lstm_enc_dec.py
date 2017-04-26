@@ -6,7 +6,6 @@ import theano.tensor as T
 import utils
 
 from recurrentshop import RecurrentContainer, LSTMCell
-from seq2seq import LSTMDecoderCell
 from callbacks import EncDecCallback
 from keras.callbacks import *
 from keras.models import Sequential, Model
@@ -14,7 +13,7 @@ from keras.layers.recurrent import LSTM
 from keras.layers import Input, Dense, TimeDistributed
 from keras.layers.core import RepeatVector
 from keras.layers.embeddings import Embedding
-from keras.optimizers import Adam, RMSprop, Adadelta
+from keras.optimizers import RMSprop
 from theano.ifelse import ifelse
 from functools import reduce
 
@@ -57,10 +56,7 @@ class LSTMEncDec:
     Creates the encoder-decoder structure and returns the symbolic input and output
     """
     def config_model(self, word_vec):
-        if self.out_type == 0:
-            train_embed = False
-        else:
-            train_embed = True
+        train_embed = False
 
         # Configure input layer
         input_layer = Input(shape=(self.sequence_len,), name='Input')
