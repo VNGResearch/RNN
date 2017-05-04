@@ -87,11 +87,18 @@ class LSTMEncDec:
             # Using recurrentshop's container with readout
             container = RecurrentContainer(readout=True, return_sequences=True,
                                            output_length=self.dec_layer_output[-1])
-            container.add(LSTMCell(output_dim=self.dec_layer_output[0],
-                                   input_dim=self.enc_layer_output[-1]))
-            for dl in self.dec_layer_output[1:]:
-                container.add(LSTMCell(output_dim=dl))
-            container.add(LSTMCell(output_dim=self.enc_layer_output[-1]))  # Output must be compatible with input for merging
+            if len(self.dec_layer_output) > 1:
+                container.add(LSTMCell(output_dim=self.dec_layer_output[0],
+                                       input_dim=self.enc_layer_output[-1]))
+                for dl in self.dec_layer_output[1:-1]:
+                    container.add(LSTMCell(output_dim=dl))
+                container.add(LSTMCell(output_dim=self.enc_layer_output[-1]))
+            else:
+                container.add(LSTMCell(input_dim=self.enc_layer_output[-1],
+                              output_dim=self.enc_layer_output[-1]))
+
+            if self.enc_layer_output[-1] != self.dec_layer_output[-1]:
+                print('WARNING: Overriding final decoder output to %s for readout compatibility' % self.enc_layer_output[-1])
             self.decoder.add(container)
         else:
             raise ValueError('Invalid decoder type %s.' % self.decoder_type)
