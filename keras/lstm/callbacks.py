@@ -1,6 +1,8 @@
-from keras.callbacks import Callback
-import utils
 import gc
+
+from keras.callbacks import Callback
+
+from lstm import utils
 
 
 class EncDecCallback(Callback):

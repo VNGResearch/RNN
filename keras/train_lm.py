@@ -1,11 +1,8 @@
-from settings_lm import *
-from lstm_lang_model import LSTMLangModel
-from data_utils import *
-
 import gc
 
-
-LM_DIRECTORY = './lang_models/LSTM_%s' % datetime.date.today().isoformat()
+from lstm.lang_model import LSTMLangModel
+from lstm import *
+from settings_lm import *
 
 # Set up the session's directory for storing the model and log file
 if not os.path.exists(LM_DIRECTORY):

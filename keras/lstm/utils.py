@@ -6,7 +6,8 @@ import sys
 SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
 MASK_TOKEN = 'MASK_TOKEN'
-DIRECTORY = './models/LSTM_%s' % datetime.date.today().isoformat()
+DIRECTORY = './models/ED_%s' % datetime.date.today().isoformat()
+LM_DIRECTORY = './models/LM_%s' % datetime.date.today().isoformat()
 
 
 def nearest_vector(array, value):

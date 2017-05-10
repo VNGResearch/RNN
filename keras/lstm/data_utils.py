@@ -1,14 +1,13 @@
+import ast
+import csv
 import json
-import nltk
 import os
 import random
-import untangle
-import numpy as np
-import csv
-import ast
 
+import nltk
+import untangle
 from glove import Glove
-from utils import *
+from lstm.utils import *
 
 EMBEDDING_PATH = 'data/glove.6B.100d.txt'
 

@@ -1,6 +1,7 @@
-from lstm_enc_dec import LSTMEncDec
 from argparse import ArgumentParser
-import utils
+
+from lstm import utils
+from lstm.enc_dec import LSTMEncDec
 
 
 def parse_args():

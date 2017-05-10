@@ -1,19 +1,19 @@
-from keras.models import Sequential
-from keras.layers.recurrent import LSTM
-from keras.layers import Input, Dense, TimeDistributed
-from keras.callbacks import *
-from keras.layers.embeddings import Embedding
-from keras.optimizers import RMSprop
-from callbacks import LangModelCallback
-from theano.ifelse import ifelse
+import pickle
+import sys
 from functools import reduce
 
-import pickle
-import numpy as np
-import utils
-import sys
 import theano
 import theano.tensor as T
+from lstm import utils
+from keras.callbacks import *
+from keras.layers import Dense, TimeDistributed
+from keras.layers.embeddings import Embedding
+from keras.layers.recurrent import LSTM
+from keras.models import Sequential
+from keras.optimizers import RMSprop
+from theano.ifelse import ifelse
+
+from lstm.callbacks import LangModelCallback
 
 
 class LSTMLangModel:

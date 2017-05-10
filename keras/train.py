@@ -1,7 +1,13 @@
 import gc
-from settings import *
-from data_utils import *
-from lstm_enc_dec import LSTMEncDec
+import sys
+
+from lstm import *
+from lstm.enc_dec import LSTMEncDec
+from settings_enc_dec import *
+
+# Alternate name for model passed as argument
+if len(sys.argv) > 1:
+    DIRECTORY = 'models/' + sys.argv[1]
 
 # Set up the session's directory for storing the model and log file
 if not os.path.exists(DIRECTORY):

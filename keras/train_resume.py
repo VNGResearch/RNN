@@ -1,9 +1,10 @@
 import gc
-
-from data_utils import *
-from lstm_enc_dec import *
-from settings import *
 from argparse import ArgumentParser
+
+from lstm.data_utils import *
+
+from lstm.enc_dec import *
+from settings_enc_dec import *
 
 
 def parse_args():
@@ -13,7 +14,9 @@ def parse_args():
     parser.add_argument('-q', '--queries', dest='queries', required=False, default='queries.txt',
                         help='The text file containing queries. If not set, runs in shell mode')
     parser.add_argument('-d', '--dataset', dest='ds', required=False, default='opensub',
-                        help='The training dataset to be used. Defaults to the OpenSubtitle dataset. Values: opensub, shakespeare, yahoo')
+                        help='''The training dataset to be used. 
+                        Defaults to the OpenSubtitle dataset. 
+                        Values: opensub, shakespeare, yahoo, southpark, cornell''')
     arg = parser.parse_args()
     return arg
 

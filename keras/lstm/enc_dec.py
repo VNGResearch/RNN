@@ -1,27 +1,25 @@
-import numpy as np
+from functools import reduce
+
 import nltk
-import keras.backend as K
 import theano
 import theano.tensor as T
-import utils
-
-from recurrentshop import RecurrentContainer, LSTMCell
-from callbacks import EncDecCallback
+from lstm import utils
 from keras.callbacks import *
-from keras.models import Sequential, Model
-from keras.layers.recurrent import LSTM
 from keras.layers import Input, Dense, TimeDistributed
 from keras.layers.core import RepeatVector
 from keras.layers.embeddings import Embedding
+from keras.layers.recurrent import LSTM
+from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
+from recurrentshop import RecurrentContainer, LSTMCell
 from theano.ifelse import ifelse
-from functools import reduce
+from lstm.callbacks import EncDecCallback
 
 
 class LSTMEncDec:
     """
     Output type: 0 for word vector output/similarity inference, 1 for softmax word distribution output.
-    Decoder type: 0 for non-readout LSTM decoder, 1 for recurrentshop's readout decoder.
+    Decoder type: 0 for non-readout LSTM decoder, 1 for recurrentshop's readout decoder, 2 for seq2seq decoder.
     """
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, directory='.',
@@ -40,8 +38,8 @@ class LSTMEncDec:
             loss = 'categorical_crossentropy'
         else:
             raise ValueError('Invalid output type %s.' % self.out_type)
-        self.encoder = Sequential()
-        self.decoder = Sequential()
+        self.encoder = Sequential(name='Encoder')
+        self.decoder = Sequential(name='Decoder')
         self.embed = None
         self.batch_size = 0
 
@@ -77,16 +75,17 @@ class LSTMEncDec:
 
         # Configure decoder network with the given output sizes.
         # Layer connecting to encoder output
-        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
         if self.decoder_type == 0:
+            self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
             self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
                                   name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
             for dl in self.dec_layer_output[1:]:
                 self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
         elif self.decoder_type == 1:
+            self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
             # Using recurrentshop's container with readout
             container = RecurrentContainer(readout=True, return_sequences=True,
-                                           output_length=self.dec_layer_output[-1])
+                                           output_length=self.sequence_len)
             if len(self.dec_layer_output) > 1:
                 container.add(LSTMCell(output_dim=self.dec_layer_output[0],
                                        input_dim=self.enc_layer_output[-1]))
@@ -100,13 +99,35 @@ class LSTMEncDec:
             if self.enc_layer_output[-1] != self.dec_layer_output[-1]:
                 print('WARNING: Overriding final decoder output to %s for readout compatibility' % self.enc_layer_output[-1])
             self.decoder.add(container)
+
+        elif self.decoder_type == 2:
+            # Using recurrentshop's decoder container
+            container = RecurrentContainer(return_sequences=True, readout='add',
+                                           output_length=self.sequence_len,
+                                           input_shape=(self.enc_layer_output[-1],),
+                                           decode=True)
+            if len(self.dec_layer_output) > 1:
+                container.add(LSTMCell(output_dim=self.dec_layer_output[0],
+                                       input_dim=self.enc_layer_output[-1]))
+                for dl in self.dec_layer_output[1:-1]:
+                    container.add(LSTMCell(output_dim=dl))
+                container.add(LSTMCell(output_dim=self.enc_layer_output[-1]))
+            else:
+                container.add(LSTMCell(input_dim=self.enc_layer_output[-1],
+                              output_dim=self.enc_layer_output[-1]))
+
+            if self.enc_layer_output[-1] != self.dec_layer_output[-1]:
+                print('WARNING: Overriding final decoder output to %s for readout compatibility' % self.enc_layer_output[-1])
+            self.decoder.add(container)
+
         else:
             raise ValueError('Invalid decoder type %s.' % self.decoder_type)
 
-        # Final layer outputting a sequence of word vectors
         if self.out_type == 0:
+            # Final layer outputting a sequence of word vectors
             self.decoder.add(TimeDistributed(Dense(np.size(word_vec, 1), activation='linear')))
         else:
+            # Final layer outputting a sequence of word distribution vectors
             self.decoder.add(TimeDistributed(Dense(len(self.index_to_word), activation='softmax')))
         output_layer = self.decoder(question_vec)
 
