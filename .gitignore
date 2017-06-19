@@ -8,5 +8,6 @@
 /keras/.idea
 /keras/test.py
 /keras/__pycache__
+/keras/lstm/__pycache__
 /.idea
 

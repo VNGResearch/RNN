@@ -1,6 +1,5 @@
 untangle
 glove-python
-git+https://github.com/farizrahman4u/seq2seq.git
 keras
 h5py
 appnope==0.1.0
