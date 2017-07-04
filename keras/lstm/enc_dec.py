@@ -58,7 +58,7 @@ class LSTMEncDec:
         """
             Creates the encoder-decoder structure and returns the symbolic input and output
         """
-        train_embed = False
+        train_embed = True
 
         # Configure input layer
         input_layer = Input(shape=(self.sequence_len,), name='Input')
