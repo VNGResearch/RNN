@@ -3,37 +3,32 @@ import csv
 import json
 import os
 import random
-
 import nltk
 import untangle
+import pandas
+
 from glove import Glove
 from lstm.utils import *
 
-EMBEDDING_PATH = 'data/glove.6B.100d.txt'
-
 
 def get_loader(dataset):
-    switch = False
+    __LOADERS__ = {
+        'opensub': (load_data_opensub, False),
+        'shakespeare': (load_data_shakespeare, False),
+        'yahoo': (load_data_yahoo, True),
+        'southpark': (load_data_southpark, True),
+        'cornell': (load_data_cornell, True),
+        'songs': (load_data_lyrics, False)
+    }
 
-    if dataset == 'opensub':
-        loader = load_data_opensub
-    elif dataset == 'shakespeare':
-        loader = load_data_shakespeare
-    elif dataset == 'yahoo':
-        loader = load_data_yahoo
-        switch = True
-    elif dataset == 'southpark':
-        loader = load_data_southpark
-        switch = True
-    elif dataset == 'cornell':
-        loader = load_data_cornell
-        switch = True
-    else:
-        raise ValueError('Invalid dataset %s.' % dataset)
-    return loader, switch
+    try:
+        return __LOADERS__[dataset]
+    except KeyError:
+        raise ValueError("Invalid dataset %s" % dataset)
 
 
 def load_embedding(vocabulary_size):
+    EMBEDDING_PATH = 'data/glove.6B.100d.txt'
     print("Loading word embedding...")
     embed = Glove.load_stanford(EMBEDDING_PATH)
     embed_layer = np.asarray(embed.word_vectors[:vocabulary_size-3, :], dtype=np.float32)
@@ -188,6 +183,26 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
 
+    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+
+
+def load_data_lyrics(path='./data/songdata.csv', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True, **kwargs):
+    print("Using vocabulary size %d." % vocabulary_size)
+    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
+
+    print('Reading CSV file %s...' % path)
+    frames = pandas.read_csv(path, header=0, names=['song', 'text'])
+    frames = frames.apply(lambda x: x.replace('\n', '. '), axis=1)
+    samples = frames.sample(100).values
+    if sample_size is not None:
+        frames = frames.sample(n=sample_size)
+
+    raw_x = frames['song'].values
+    raw_y = frames['text'].values
+
+    raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
     return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
 
 

@@ -1,8 +1,4 @@
-from functools import reduce
-
 import nltk
-import theano
-import theano.tensor as T
 from lstm import utils
 from keras.callbacks import *
 from keras.layers import Input, Dense, TimeDistributed
@@ -12,7 +8,6 @@ from keras.layers.recurrent import LSTM
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
 from recurrentshop import RecurrentContainer, LSTMCell
-from theano.ifelse import ifelse
 from lstm.callbacks import EncDecCallback
 
 
@@ -21,11 +16,11 @@ class LSTMEncDec:
     __DECODER_BUILDS__ = None
 
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None, enc_layer_output=(32,),
-                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=2000, directory='.',
+                 dec_layer_output=(32,), learning_rate=0.001, sequence_len=200, output_len=2000, directory='.',
                  out_type=0, decoder_type=0):
         """
-            Output type: 0 for word vector output/similarity inference, 1 for softmax word distribution output.
-            Decoder type: 0 for non-readout LSTM decoder, 1 for recurrentshop's readout decoder, 2 for seq2seq decoder.
+        :param out_type: 0 for word vector output/similarity inference, 1 for softmax word distribution output.
+        :param decoder_type: 0 for non-readout LSTM decoder, 1 for recurrentshop's readout decoder, 2 for seq2seq decoder.
         """
         self.__DECODER_BUILDS__ = (self.__build_repeat_decoder__,
                                    self.__build_readout_decoder__,
@@ -33,6 +28,7 @@ class LSTMEncDec:
         self.word_to_index = word_to_index
         self.index_to_word = index_to_word
         self.sequence_len = sequence_len
+        self.output_len = output_len
         self.directory = directory
         self.enc_layer_output = enc_layer_output
         self.dec_layer_output = dec_layer_output
@@ -56,14 +52,15 @@ class LSTMEncDec:
 
     def config_model(self, word_vec):
         """
-            Creates the encoder-decoder structure and returns the symbolic input and output
+        Creates the encoder-decoder structure and returns the symbolic input and output
         """
         train_embed = True
 
         # Configure input layer
         input_layer = Input(shape=(self.sequence_len,), name='Input')
 
-        # Embedding layer should be initialized with a word-vector array and not be trained as the output relies on the same array
+        # Embedding layer should be initialized with a word-vector array and
+        # not be trained as the output relies on the same array
         self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
                                weights=[word_vec], trainable=train_embed, mask_zero=True, name='Embed')
 
@@ -73,7 +70,6 @@ class LSTMEncDec:
         for el in self.enc_layer_output[:-1]:
             self.encoder.add(LSTM(el, return_sequences=True, consume_less='mem'))
         self.encoder.add(LSTM(self.enc_layer_output[-1]))  # Final LSTM layer only outputs the last vector
-        # self.encoder.add(RepeatVector(self.sequence_len))  # Repeat the final vector for answer input
         # Encoder outputs the question vector as a tensor with each time-step output being the final question vector
         question_vec = self.encoder(input_layer)
 
@@ -96,18 +92,18 @@ class LSTMEncDec:
 
     def __build_repeat_decoder__(self):
         # Repeat the final vector for answer input
-        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))
-        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
+        self.decoder.add(RepeatVector(self.output_len, input_shape=(self.enc_layer_output[-1],)))
+        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.output_len, self.enc_layer_output[-1]),
                               name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
         for dl in self.dec_layer_output[1:]:
             self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
 
     def __build_readout_decoder__(self):
-        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(
+        self.decoder.add(RepeatVector(self.output_len, input_shape=(
             self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
         # Using recurrentshop's container with readout
         container = RecurrentContainer(readout=True, return_sequences=True,
-                                       output_length=self.sequence_len)
+                                       output_length=self.output_len)
         if len(self.dec_layer_output) > 1:
             container.add(LSTMCell(output_dim=self.dec_layer_output[0],
                                    input_dim=self.enc_layer_output[-1]))
@@ -126,7 +122,7 @@ class LSTMEncDec:
     def __build_seq2seq_decoder__(self):
         # Using recurrentshop's decoder container
         container = RecurrentContainer(return_sequences=True, readout='add',
-                                       output_length=self.sequence_len,
+                                       output_length=self.output_len,
                                        input_shape=(self.enc_layer_output[-1],),
                                        decode=True)
         if len(self.dec_layer_output) > 1:
@@ -148,15 +144,15 @@ class LSTMEncDec:
         if self.out_type == 0:
             metrics = ['mean_absolute_error']
         else:
-            metrics = [self.categorical_acc]
+            metrics = []
         self.model.compile(optimizer=RMSprop(lr=learning_rate), loss=loss, metrics=metrics,
                            sample_weight_mode='temporal')
 
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None, batch_size=10,
               queries=None):
         """
-            Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
-            See utils.generate_batch().
+        Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
+        See utils.generate_batch().
         """
         self.batch_size = batch_size
         callback = EncDecCallback(self, queries, True)
@@ -184,7 +180,7 @@ class LSTMEncDec:
 
     def generate_response(self, query):
         """
-            Pre-processes a raw query string and return a response string
+        Pre-processes a raw query string and return a response string
         """
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
         indices = [self.word_to_index[w] if w in self.word_to_index
@@ -217,75 +213,6 @@ class LSTMEncDec:
 
         return ' '.join(response)
 
-    """
-    Generates a list of top candidates for each word position given a raw string query.
-    Only applies for softmax model.
-    """
-
-    def generate_candidates(self, query, top=3):
-        tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
-        indices = [self.word_to_index[w] if w in self.word_to_index
-                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
-        indices.extend([0] * (self.sequence_len - len(indices)))
-        indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
-        output = self.model.predict(indices, batch_size=1, verbose=0)
-        vectors = self.embed.get_weights()[0]
-        response, candidates = [], []
-
-        if self.out_type == 0:
-            for word_vec in output[0]:
-                word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec)]
-                if word == utils.MASK_TOKEN:
-                    continue
-                elif word == utils.SENTENCE_END_TOKEN:
-                    break
-                response.append(word)
-        else:
-            out_idx = utils.k_largest_idx(output, top)
-            # noinspection PyTypeChecker
-            for ca in out_idx[0]:
-                word = self.index_to_word[ca[0]]
-                if word == utils.MASK_TOKEN:
-                    continue
-                elif word == utils.SENTENCE_END_TOKEN:
-                    response.append(word)
-                    break
-                response.append(word)
-                candidates.append([self.index_to_word[c] for c in ca])
-
-        return ' '.join(response), candidates
-
-    """
-    Custom ad-hoc categorical accuracy for masked output (requires Theano backend).
-    Dynamically detects masked characters and ignores them in calculation.
-    """
-
-    def categorical_acc(self, y_true, y_pred):
-        p = self.word_to_index[utils.MASK_TOKEN]
-        token = np.zeros((len(self.index_to_word)), dtype=np.float32)
-        token[p] = 1
-        t = K.variable(token)
-
-        # Configure masking function
-        def iterate(a):
-            d2, u2 = theano.scan(fn=mask, sequences=a)
-            return d2
-
-        def mask(w):
-            return ifelse(T.eq(w, t).all(), T.zeros(1), T.ones(1))
-
-        mask, u1 = theano.scan(fn=iterate, sequences=y_true)
-
-        eval_shape = (reduce(T.mul, y_true.shape[:-1]), y_true.shape[-1])
-        y_true_ = K.reshape(y_true, eval_shape)
-        y_pred_ = K.reshape(y_pred, eval_shape)
-        flat_mask = K.flatten(mask)
-        comped = K.equal(K.argmax(y_true_, axis=-1),
-                         K.argmax(y_pred_, axis=-1))
-        # not sure how to do this in tensor flow
-        good_entries = flat_mask.nonzero()[0]
-        return K.mean(K.gather(comped, good_entries))
-
     def log(self, string='', out=True):
         f = open(self.directory + '/log.txt', mode='at')
 
@@ -293,12 +220,3 @@ class LSTMEncDec:
             print(string)
         print(string, file=f)
         f.close()
-
-    def perplexity(self, y_true, y_pred):
-        dist = K.sum(y_true * y_pred, axis=2)
-        length = K.variable(self.sequence_len)
-        p = K.pow(K.variable(2), K.variable(0) - K.sum(T.log2(dist), axis=1) / length)
-        return K.mean(p)
-
-    def bleu_score(self, y_true, y_pred):
-        pass
