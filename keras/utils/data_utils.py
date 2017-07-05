@@ -3,12 +3,14 @@ import csv
 import json
 import os
 import random
-import nltk
-import untangle
-import pandas
 
-from glove import Glove
-from lstm.utils import *
+import nltk
+import pandas
+import untangle
+
+from lstm.enc_dec import SENTENCE_END_TOKEN, UNKNOWN_TOKEN, MASK_TOKEN
+from utils.commons import *
+from utils.embed_utils import Glove
 
 
 def get_loader(dataset):

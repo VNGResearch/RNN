@@ -1,5 +1,4 @@
 untangle
-glove-python
 keras
 h5py
 appnope==0.1.0

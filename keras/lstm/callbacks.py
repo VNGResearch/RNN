@@ -2,7 +2,7 @@ import gc
 
 from keras.callbacks import Callback
 
-from lstm import utils
+from utils import commons
 
 
 class EncDecCallback(Callback):
@@ -14,7 +14,7 @@ class EncDecCallback(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         print()
-        utils.save_model(self.enc_dec)
+        commons.save_model(self.enc_dec)
         print('Logging responses')
         self.enc_dec.log('Epoch %s:\n' % epoch, out=False)
         for query in self.queries:

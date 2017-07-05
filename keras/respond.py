@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
-from lstm import utils
 from lstm.enc_dec import LSTMEncDec
+from utils import commons
 
 
 def parse_args():
@@ -19,7 +19,7 @@ def parse_args():
 args = parse_args()
 
 print('Loading model...')
-model = utils.load_model(args.md, LSTMEncDec)
+model = commons.load_model(args.md, LSTMEncDec)
 
 conv = []
 

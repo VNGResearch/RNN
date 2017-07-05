@@ -1,7 +1,9 @@
 import gc
+import os
 import sys
 
-from lstm import *
+from utils.data_utils import get_loader
+from utils.commons import *
 from lstm.enc_dec import LSTMEncDec
 from settings_enc_dec import *
 
@@ -22,10 +24,10 @@ X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(voca
                                                                             sample_size=DOC_COUNT,
                                                                             sequence_len=SEQUENCE_LENGTH,
                                                                             vec_labels=(OUTPUT_TYPE == 0))
-X_val = X[:VAL_SPLIt]
-X_train = X[VAL_SPLIt:]
-y_val = y[:VAL_SPLIt]
-y_train = y[VAL_SPLIt:]
+X_val = X[:VAL_SPLIT]
+X_train = X[VAL_SPLIT:]
+y_val = y[:VAL_SPLIT]
+y_train = y[VAL_SPLIT:]
 X = y = None
 gc.collect()
 
@@ -44,4 +46,4 @@ model = LSTMEncDec(word_vec, word_to_index, index_to_word, enc_layer_output=ENCO
 # Start training
 print('Starting training...')
 model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val,
-            train_mask=output_mask[VAL_SPLIt:], val_mask=output_mask[:VAL_SPLIt])
+            train_mask=output_mask[VAL_SPLIT:], val_mask=output_mask[:VAL_SPLIT])

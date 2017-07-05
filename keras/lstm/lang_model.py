@@ -4,7 +4,6 @@ from functools import reduce
 
 import theano
 import theano.tensor as T
-from lstm import utils
 from keras.callbacks import *
 from keras.layers import Dense, TimeDistributed
 from keras.layers.embeddings import Embedding
@@ -13,7 +12,9 @@ from keras.models import Sequential
 from keras.optimizers import RMSprop
 from theano.ifelse import ifelse
 
+import lstm.enc_dec
 from lstm.callbacks import LangModelCallback
+from utils import commons
 
 
 class LSTMLangModel:
@@ -54,7 +55,7 @@ class LSTMLangModel:
         nb_class = len(self.index_to_word)
         total_len = np.size(ytrain, 0)
 
-        generator = utils.generate_batch
+        generator = commons.generate_batch
 
         if Xval is None or yval is None:
             self.model.fit_generator(
@@ -72,7 +73,7 @@ class LSTMLangModel:
     def predict(self, query_tokens):
         out_pos = len(query_tokens) - 1
         indices = [self.word_to_index[w] if w in self.word_to_index
-                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in query_tokens]
+                   else self.word_to_index[lstm.enc_dec.UNKNOWN_TOKEN] for w in query_tokens]
         indices.extend([0] * (self.sequence_len - len(indices)))
         indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
 
@@ -85,7 +86,7 @@ class LSTMLangModel:
     """
 
     def categorical_acc(self, y_true, y_pred):
-        p = self.word_to_index[utils.MASK_TOKEN]
+        p = self.word_to_index[lstm.enc_dec.MASK_TOKEN]
         token = np.zeros((len(self.index_to_word)), dtype=np.float32)
         token[p] = 1
         t = K.variable(token)

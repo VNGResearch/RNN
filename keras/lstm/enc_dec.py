@@ -1,5 +1,7 @@
+# from functools import reduce
+# import theano
+# import theano.tensor as T
 import nltk
-from lstm import utils
 from keras.callbacks import *
 from keras.layers import Input, Dense, TimeDistributed
 from keras.layers.core import RepeatVector
@@ -8,7 +10,13 @@ from keras.layers.recurrent import LSTM
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
 from recurrentshop import RecurrentContainer, LSTMCell
+
 from lstm.callbacks import EncDecCallback
+from utils import commons
+
+SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
+UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
+MASK_TOKEN = 'MASK_TOKEN'
 
 
 class LSTMEncDec:
@@ -19,8 +27,13 @@ class LSTMEncDec:
                  dec_layer_output=(32,), learning_rate=0.001, sequence_len=200, output_len=2000, directory='.',
                  out_type=0, decoder_type=0):
         """
-        :param out_type: 0 for word vector output/similarity inference, 1 for softmax word distribution output.
-        :param decoder_type: 0 for non-readout LSTM decoder, 1 for recurrentshop's readout decoder, 2 for seq2seq decoder.
+        :param out_type:
+            0: word vector output/similarity inference
+            1: for softmax word distribution output.
+        :param decoder_type:
+            0: non-readout LSTM decoder
+            1: recurrentshop's readout decoder
+            2: seq2seq decoder.
         """
         self.__DECODER_BUILDS__ = (self.__build_repeat_decoder__,
                                    self.__build_readout_decoder__,
@@ -92,18 +105,18 @@ class LSTMEncDec:
 
     def __build_repeat_decoder__(self):
         # Repeat the final vector for answer input
-        self.decoder.add(RepeatVector(self.output_len, input_shape=(self.enc_layer_output[-1],)))
-        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.output_len, self.enc_layer_output[-1]),
+        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(self.enc_layer_output[-1],)))
+        self.decoder.add(LSTM(self.dec_layer_output[0], input_shape=(self.sequence_len, self.enc_layer_output[-1]),
                               name='ConnectorLSTM', return_sequences=True, consume_less='mem'))
         for dl in self.dec_layer_output[1:]:
             self.decoder.add(LSTM(dl, return_sequences=True, consume_less='mem'))
 
     def __build_readout_decoder__(self):
-        self.decoder.add(RepeatVector(self.output_len, input_shape=(
+        self.decoder.add(RepeatVector(self.sequence_len, input_shape=(
             self.enc_layer_output[-1],)))  # Repeat the final vector for answer input
         # Using recurrentshop's container with readout
         container = RecurrentContainer(readout=True, return_sequences=True,
-                                       output_length=self.output_len)
+                                       output_length=self.sequence_len)
         if len(self.dec_layer_output) > 1:
             container.add(LSTMCell(output_dim=self.dec_layer_output[0],
                                    input_dim=self.enc_layer_output[-1]))
@@ -122,7 +135,7 @@ class LSTMEncDec:
     def __build_seq2seq_decoder__(self):
         # Using recurrentshop's decoder container
         container = RecurrentContainer(return_sequences=True, readout='add',
-                                       output_length=self.output_len,
+                                       output_length=self.sequence_len,
                                        input_shape=(self.enc_layer_output[-1],),
                                        decode=True)
         if len(self.dec_layer_output) > 1:
@@ -161,9 +174,9 @@ class LSTMEncDec:
         total_len = np.size(ytrain, 0)
 
         if self.out_type == 0:
-            generator = utils.generate_vector_batch
+            generator = commons.generate_vector_batch
         else:
-            generator = utils.generate_batch
+            generator = commons.generate_batch
 
         if Xval is None or yval is None:
             self.model.fit_generator(
@@ -184,12 +197,48 @@ class LSTMEncDec:
         """
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
         indices = [self.word_to_index[w] if w in self.word_to_index
-                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
+                   else self.word_to_index[UNKNOWN_TOKEN] for w in tokens]
         indices.extend([0] * (self.sequence_len - len(indices)))
         indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
         output = self.model.predict(indices, batch_size=1, verbose=0)
         vectors = self.embed.get_weights()[0]
         response = []
+
+        if self.out_type == 0:
+            for word_vec in output[0]:
+                word = self.index_to_word[commons.nearest_vector_index(vectors, word_vec)]
+                if word == MASK_TOKEN:
+                    continue
+                elif word == SENTENCE_END_TOKEN:
+                    break
+                response.append(word)
+        else:
+            out_idx = np.argmax(output, axis=2)
+            # noinspection PyTypeChecker
+            for idx in out_idx[0]:
+                word = self.index_to_word[idx]
+                if word == MASK_TOKEN:
+                    continue
+                elif word == SENTENCE_END_TOKEN:
+                    response.append(word)
+                    break
+                response.append(word)
+
+        return ' '.join(response)
+
+    def generate_candidates(self, query, top=3):
+        """
+        Generates a list of top candidates for each word position given a raw string query.
+        Only applies for softmax model.
+        """
+        tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
+        indices = [self.word_to_index[w] if w in self.word_to_index
+                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
+        indices.extend([0] * (self.sequence_len - len(indices)))
+        indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
+        output = self.model.predict(indices, batch_size=1, verbose=0)
+        vectors = self.embed.get_weights()[0]
+        response, candidates = [], []
 
         if self.out_type == 0:
             for word_vec in output[0]:
@@ -200,18 +249,19 @@ class LSTMEncDec:
                     break
                 response.append(word)
         else:
-            out_idx = np.argmax(output, axis=2)
+            out_idx = utils.k_largest_idx(output, top)
             # noinspection PyTypeChecker
-            for idx in out_idx[0]:
-                word = self.index_to_word[idx]
+            for ca in out_idx[0]:
+                word = self.index_to_word[ca[0]]
                 if word == utils.MASK_TOKEN:
                     continue
                 elif word == utils.SENTENCE_END_TOKEN:
                     response.append(word)
                     break
                 response.append(word)
+                candidates.append([self.index_to_word[c] for c in ca])
 
-        return ' '.join(response)
+        return ' '.join(response), candidates
 
     def log(self, string='', out=True):
         f = open(self.directory + '/log.txt', mode='at')
@@ -220,3 +270,29 @@ class LSTMEncDec:
             print(string)
         print(string, file=f)
         f.close()
+
+    # def categorical_acc(self, y_true, y_pred):
+    #     p = self.word_to_index[utils.MASK_TOKEN]
+    #     token = np.zeros((len(self.index_to_word)), dtype=np.float32)
+    #     token[p] = 1
+    #     t = K.variable(token)
+    #
+    #     # Configure masking function
+    #     def iterate(a):
+    #         d2, u2 = theano.scan(fn=mask, sequences=a)
+    #         return d2
+    #
+    #     def mask(w):
+    #         return ifelse(T.eq(w, t).all(), T.zeros(1), T.ones(1))
+    #
+    #     mask, u1 = theano.scan(fn=iterate, sequences=y_true)
+    #
+    #     eval_shape = (reduce(T.mul, y_true.shape[:-1]), y_true.shape[-1])
+    #     y_true_ = K.reshape(y_true, eval_shape)
+    #     y_pred_ = K.reshape(y_pred, eval_shape)
+    #     flat_mask = K.flatten(mask)
+    #     comped = K.equal(K.argmax(y_true_, axis=-1),
+    #                      K.argmax(y_pred_, axis=-1))
+    #     # not sure how to do this in tensor flow
+    #     good_entries = flat_mask.nonzero()[0]
+    #     return K.mean(K.gather(comped, good_entries))
