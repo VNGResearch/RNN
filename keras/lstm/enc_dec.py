@@ -12,7 +12,7 @@ from keras.optimizers import RMSprop
 from recurrentshop import RecurrentContainer, LSTMCell
 
 from lstm.callbacks import EncDecCallback
-from utils import commons
+import utils
 
 SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
 UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
@@ -174,9 +174,9 @@ class LSTMEncDec:
         total_len = np.size(ytrain, 0)
 
         if self.out_type == 0:
-            generator = commons.generate_vector_batch
+            generator = utils.generate_vector_batch
         else:
-            generator = commons.generate_batch
+            generator = utils.generate_batch
 
         if Xval is None or yval is None:
             self.model.fit_generator(
@@ -206,7 +206,7 @@ class LSTMEncDec:
 
         if self.out_type == 0:
             for word_vec in output[0]:
-                word = self.index_to_word[commons.nearest_vector_index(vectors, word_vec)]
+                word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec)]
                 if word == MASK_TOKEN:
                     continue
                 elif word == SENTENCE_END_TOKEN:
@@ -233,7 +233,7 @@ class LSTMEncDec:
         """
         tokens = nltk.word_tokenize(query.lower())[:self.sequence_len]
         indices = [self.word_to_index[w] if w in self.word_to_index
-                   else self.word_to_index[utils.UNKNOWN_TOKEN] for w in tokens]
+                   else self.word_to_index[UNKNOWN_TOKEN] for w in tokens]
         indices.extend([0] * (self.sequence_len - len(indices)))
         indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
         output = self.model.predict(indices, batch_size=1, verbose=0)
@@ -243,7 +243,7 @@ class LSTMEncDec:
         if self.out_type == 0:
             for word_vec in output[0]:
                 word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec)]
-                if word == utils.MASK_TOKEN:
+                if word == MASK_TOKEN:
                     continue
                 elif word == utils.SENTENCE_END_TOKEN:
                     break
@@ -253,9 +253,9 @@ class LSTMEncDec:
             # noinspection PyTypeChecker
             for ca in out_idx[0]:
                 word = self.index_to_word[ca[0]]
-                if word == utils.MASK_TOKEN:
+                if word == MASK_TOKEN:
                     continue
-                elif word == utils.SENTENCE_END_TOKEN:
+                elif word == SENTENCE_END_TOKEN:
                     response.append(word)
                     break
                 response.append(word)
