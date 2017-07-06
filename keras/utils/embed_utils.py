@@ -1,10 +1,12 @@
 import array
 import numpy as np
-import scipy.sparse as sp
-import numbers
 
 
 class Glove(object):
+    """
+    A partial clone of the Glove class from glove-python (https://github.com/maciejkula/glove-python)
+    for loading Glove embeddings text files.
+    """
     def __init__(self):
         self.word_vectors = None
         self.dictionary = None

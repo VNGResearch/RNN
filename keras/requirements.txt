@@ -1,3 +1,4 @@
+pandas
 untangle
 keras
 h5py
