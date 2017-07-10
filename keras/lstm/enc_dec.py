@@ -11,12 +11,10 @@ from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
 from recurrentshop import RecurrentContainer, LSTMCell
 
-from lstm.callbacks import EncDecCallback
+import lstm.tokens
 import utils
-
-SENTENCE_END_TOKEN = 'SENTENCE_END_TOKEN'
-UNKNOWN_TOKEN = 'UNKNOWN_TOKEN'
-MASK_TOKEN = 'MASK_TOKEN'
+from lstm.callbacks import EncDecCallback
+from lstm.tokens import SENTENCE_END_TOKEN, UNKNOWN_TOKEN, MASK_TOKEN
 
 
 class LSTMEncDec:
@@ -245,7 +243,7 @@ class LSTMEncDec:
                 word = self.index_to_word[utils.nearest_vector_index(vectors, word_vec)]
                 if word == MASK_TOKEN:
                     continue
-                elif word == utils.SENTENCE_END_TOKEN:
+                elif word == lstm.tokens.SENTENCE_END_TOKEN:
                     break
                 response.append(word)
         else:

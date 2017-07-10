@@ -10,6 +10,11 @@ DOC_COUNT = None  # Number of documents to extract from opensub or shakespeare d
 VAL_SPLIT = 100  # Number of validation samples to be taken from training set
 BATCH_SIZE = 50
 DATASET = 'cornell'
+
+# Word Embdedding settings
+EMBEDDING_TYPE = 'glove'
+EMBEDDING_PATH = 'data/glove.6B.100d.txt'
+
 # Structural settings
 OUTPUT_TYPE = 1
 DECODER_TYPE = 2

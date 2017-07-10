@@ -6,10 +6,11 @@ import random
 import nltk
 import pandas
 import untangle
+import logging
 
-from lstm.enc_dec import SENTENCE_END_TOKEN, UNKNOWN_TOKEN, MASK_TOKEN
+from lstm.tokens import SENTENCE_END_TOKEN, UNKNOWN_TOKEN, MASK_TOKEN
 from utils.commons import *
-from utils.embed_utils import Glove
+from utils.embed_utils import EmbeddingLoader
 
 
 def get_loader(dataset):
@@ -28,11 +29,17 @@ def get_loader(dataset):
         raise ValueError("Invalid dataset %s" % dataset)
 
 
-def load_embedding(vocabulary_size):
-    EMBEDDING_PATH = 'data/glove.6B.100d.txt'
-    print("Loading word embedding...")
-    embed = Glove.load_stanford(EMBEDDING_PATH)
-    embed_layer = np.asarray(embed.word_vectors[:vocabulary_size-3, :], dtype=np.float32)
+def load_embedding(vocabulary_size, embed_type='glove', embed_path='data/glove.6B.100d.txt'):
+    logging.info("Loading word embedding from %s ..." % embed_path)
+    logging.info('Using vocabulary size %d' % vocabulary_size)
+
+    __EMBED_LOADERS__ = {
+        'glove': EmbeddingLoader.load_stanford_glove,
+        'fasttext': EmbeddingLoader.load_fb_fasttext,
+    }
+
+    embed = __EMBED_LOADERS__[embed_type](embed_path)
+    embed_layer = np.asarray(embed.word_vectors[:vocabulary_size - 3, :], dtype=np.float32)
     index_to_word = list(embed.inverse_dictionary.values())
     index_to_word = index_to_word[:vocabulary_size - 3]
     index_to_word.insert(0, MASK_TOKEN)
@@ -48,6 +55,7 @@ def load_embedding(vocabulary_size):
     # Random vector for UNKNOWN_TOKEN, placed intentionally far away from vocabulary words
     embed_layer = np.vstack((embed_layer, np.asarray(np.random.uniform(50.0, 80.0, (1, word_dim)), dtype=np.float32)))
 
+    logging.info('Done.')
     return embed_layer, word_to_index, index_to_word
 
 
@@ -78,15 +86,15 @@ def replace_unknown(raw_x, raw_y, word_to_index):
             total += 1.0
             raw_y[i][idx] = nw
             idx += 1
-    print("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
-    print("Unknown token ratio: %s %%" % (unk_count * 100 / total))
-    print("Parsed %s exchanges." % (len(raw_x)))
+    logging.info("Parsed %s exchanges." % (len(raw_x)))
+    logging.info("%s unknown tokens / %s tokens " % (int(unk_count), int(total)))
+    logging.info("Unknown token ratio: %s %%" % (unk_count * 100 / total))
 
     return raw_x, raw_y
 
 
 def generate_data(raw_x, raw_y, sequence_len, embed_layer, word_to_index, vec_labels):
-    print('Generating data...')
+    logging.info('Generating data...')
     X_train = np.zeros((len(raw_x), sequence_len), dtype=np.int32)
     for i in range(len(raw_x)):
         for j in range(len(raw_x[i])):
@@ -118,7 +126,7 @@ def generate_lm_labels(x, word_to_index):
     for i in range(np.size(y, 0)):
         for j in range(1, np.size(y, 1)):
             if x[i][j] == word_to_index[MASK_TOKEN]:
-                y[i][j-1] = word_to_index[SENTENCE_END_TOKEN]
+                y[i][j - 1] = word_to_index[SENTENCE_END_TOKEN]
                 break
 
     msk_func = np.vectorize(lambda a: 0 if a == word_to_index[MASK_TOKEN] else 1)
@@ -126,8 +134,10 @@ def generate_lm_labels(x, word_to_index):
     return y, output_mask
 
 
-def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True, **kwargs):
-    print("Reading JSON file (%s) ..." % filename)
+def load_data_yahoo(embed_layer, word_to_index, index_to_word,
+                    filename="data/yahoo/nfL6.json", sample_size=None,
+                    sequence_len=2000, vec_labels=True, **kwargs):
+    logging.info("Reading JSON file (%s) ..." % filename)
     questions = []
     answers = []
     with open(filename, 'r') as f:
@@ -138,43 +148,39 @@ def load_data_yahoo(filename="data/yahoo/nfL6.json", vocabulary_size=2000, sampl
             questions.append("%s" % qa['question'].lower())
             answers.append("%s %s" % (qa['answer'].lower(), SENTENCE_END_TOKEN))
 
-    print("Tokenizing...")
+    logging.info("Tokenizing...")
     tokenized_questions = [nltk.word_tokenize(sent) for sent in questions]
     tokenized_answers = [nltk.word_tokenize(sent) for sent in answers]
-
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
 
     tokenized_questions, tokenized_answers = replace_unknown(tokenized_answers, tokenized_questions, word_to_index)
 
     # Create the training data
-    print('Generating data...')
+    logging.info('Generating data...')
     X_train, y_train, output_mask = generate_data(tokenized_questions, tokenized_answers, sequence_len,
                                                   embed_layer, word_to_index, vec_labels)
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, [], output_mask
+    return X_train, y_train, [], output_mask
 
 
-def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True, **kwargs):
+def load_data_opensub(embed_layer, word_to_index, index_to_word,
+                      path='./data/opensub', sample_size=None,
+                      sequence_len=50, vec_labels=True, **kwargs):
     raw_x, raw_y = [], []
     fl = os.listdir(path)
     if sample_size is not None:
         np.random.shuffle(fl)
         fl = fl[:sample_size]
 
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
     samples = []
-    print('Tokenizing...')
+    logging.info('Tokenizing...')
     for fn in fl:
-        print('Reading %s...' % fn)
+        logging.info('Reading %s...' % fn)
         f = open(path + '/' + fn, 'rt')
         lines = f.readlines()
-        samples.append(lines[random.randint(0, len(lines)-1)].rstrip())
+        samples.append(lines[random.randint(0, len(lines) - 1)].rstrip())
         for i, l in enumerate(lines[:-1]):
             l1 = nltk.word_tokenize(l.rstrip().lower())[:sequence_len]
-            l2 = nltk.word_tokenize(lines[i+1].rstrip().lower())[:sequence_len-1]
+            l2 = nltk.word_tokenize(lines[i + 1].rstrip().lower())[:sequence_len - 1]
             l2.append(SENTENCE_END_TOKEN)
             raw_x.append(l1)
             raw_y.append(l2)
@@ -184,14 +190,13 @@ def load_data_opensub(path='./data/opensub', vocabulary_size=2000, sample_size=N
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+    return X_train, y_train, samples, output_mask
 
 
-def load_data_lyrics(path='./data/songdata.csv', vocabulary_size=2000, sample_size=None, sequence_len=50, vec_labels=True, **kwargs):
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
-    print('Reading CSV file %s...' % path)
+def load_data_lyrics(embed_layer, word_to_index, index_to_word,
+                     path='./data/songdata.csv', sample_size=None,
+                     sequence_len=50, vec_labels=True, **kwargs):
+    logging.info('Reading CSV file %s...' % path)
     frames = pandas.read_csv(path, header=0, names=['song', 'text'])
     frames = frames.apply(lambda x: x.replace('\n', '. '), axis=1)
     samples = frames.sample(100).values
@@ -204,10 +209,12 @@ def load_data_lyrics(path='./data/songdata.csv', vocabulary_size=2000, sample_si
     raw_x, raw_y = replace_unknown(raw_x, raw_y, word_to_index)
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+    return X_train, y_train, samples, output_mask
 
 
-def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sample_size=None, sequence_len=2000, vec_labels=True, **kwargs):
+def load_data_shakespeare(embed_layer, word_to_index, index_to_word,
+                          path='./data/shakespeare', sample_size=None,
+                          sequence_len=2000, vec_labels=True, **kwargs):
     def load_play(file_path):
         play = untangle.parse(file_path)
         acts = play.PLAY.ACT
@@ -231,12 +238,12 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
                         s_q.append(speech_tokens)
                         if len(s_q) > 1:
                             s_a.append(speech_tokens + [SENTENCE_END_TOKEN])
-                        # line_str.append(line_st)
-                    # speech_str = ' '.join(line_str)
-                    # speech_tokens = nltk.word_tokenize(speech_str.lower())
-                    # s_q.append(speech_tokens)
-                    # if len(s_q) > 1:
-                    #     s_a.append(speech_tokens)
+                            # line_str.append(line_st)
+                            # speech_str = ' '.join(line_str)
+                            # speech_tokens = nltk.word_tokenize(speech_str.lower())
+                            # s_q.append(speech_tokens)
+                            # if len(s_q) > 1:
+                            #     s_a.append(speech_tokens)
                 s_q = s_q[:-1]
                 q.extend(s_q)
                 a.extend(s_a)
@@ -250,14 +257,11 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
         np.random.shuffle(fl)
         fl = fl[:sample_size]
 
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
-    print('Tokenizing...')
+    logging.info('Tokenizing...')
     for fn in fl:
         if not fn.endswith('.xml'):
             continue
-        print('Reading %s...' % fn)
+        logging.info('Reading %s...' % fn)
         rx, ry = load_play(path + '/' + fn)
         raw_x.extend(rx)
         raw_y.extend(ry)
@@ -269,12 +273,13 @@ def load_data_shakespeare(path='./data/shakespeare', vocabulary_size=2000, sampl
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+    return X_train, y_train, samples, output_mask
 
 
-def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2000, sample_size=None,
+def load_data_southpark(embed_layer, word_to_index, index_to_word,
+                        path='./data/southpark/southpark.csv', sample_size=None,
                         sequence_len=2000, vec_labels=True, **kwargs):
-    print("Reading CSV file (%s) ..." % path)
+    logging.info("Reading CSV file (%s) ..." % path)
     f = open(path, mode='rt', newline='')
     reader = csv.reader(f, delimiter=',', quotechar='"')
     rows = []
@@ -282,13 +287,10 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
         rows.append(row)
     f.close()
 
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
-
     samples = []
     character = kwargs.get('character', None)
 
-    print('Tokenizing...')
+    logging.info('Tokenizing...')
     season, ep = rows[0][0], rows[0][1]
     prev_line = rows[0][3]
     raw_x, raw_y = [], []
@@ -298,14 +300,14 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
             prev_line = line
             continue
         if season != ss or ep != e:
-            print('Season %s ep %s' % (season, ep))
+            logging.info('Season %s ep %s' % (season, ep))
             samples.append(line)
             season = ss
             ep = e
             continue
 
         l1 = nltk.word_tokenize(prev_line.lower().strip())[:sequence_len]
-        l2 = nltk.word_tokenize(line.lower().strip())[:sequence_len-1]
+        l2 = nltk.word_tokenize(line.lower().strip())[:sequence_len - 1]
         l2.append(SENTENCE_END_TOKEN)
         raw_x.append(l1)
         raw_y.append(l2)
@@ -318,20 +320,18 @@ def load_data_southpark(path='./data/southpark/southpark.csv', vocabulary_size=2
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+    return X_train, y_train, samples, output_mask
 
 
-def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus', vocabulary_size=2000, sample_size=None,
+def load_data_cornell(embed_layer, word_to_index, index_to_word,
+                      path='./data/cornell_movies/cornell_movie-dialogs_corpus', sample_size=None,
                       sequence_len=2000, vec_labels=True, **kwargs):
-    print('Reading TXT file (%s)' % path)
+    logging.info('Reading TXT file (%s)' % path)
     f1 = open(path + '/movie_lines.txt', mode='rt', encoding='cp437')
     f2 = open(path + '/movie_conversations.txt', mode='rt')
     lines = f1.readlines()
     convs = f2.readlines()
     f1.close(), f2.close()
-
-    print("Using vocabulary size %d." % vocabulary_size)
-    embed_layer, word_to_index, index_to_word = load_embedding(vocabulary_size)
 
     samples = []
     raw_x, raw_y = [], []
@@ -340,14 +340,14 @@ def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus',
         fields = line[:-1].split(' +++$+++ ')
         id_to_lines[fields[0]] = fields[-1]
 
-    print('Tokenizing...')
+    logging.info('Tokenizing...')
     for conv in convs:
         expr = conv[:-1].split(' +++$+++ ')[-1]
         lns = ast.literal_eval(expr)
         tlns = [nltk.word_tokenize(id_to_lines[l].lower().strip()) for l in lns]
-        for i in range(len(tlns)-1):
+        for i in range(len(tlns) - 1):
             x = tlns[i][:sequence_len]
-            y = tlns[i+1][:sequence_len-1]
+            y = tlns[i + 1][:sequence_len - 1]
             y.append(SENTENCE_END_TOKEN)
             raw_x.append(x)
             raw_y.append(y)
@@ -359,4 +359,14 @@ def load_data_cornell(path='./data/cornell_movies/cornell_movie-dialogs_corpus',
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
                                                   word_to_index, vec_labels)
 
-    return X_train, y_train, word_to_index, index_to_word, embed_layer, samples, output_mask
+    return X_train, y_train, samples, output_mask
+
+
+def load_data_vnnews(embed_layer, word_to_index, index_to_word,
+                     path='./data/vnnews/vnnews_train.txt', sample_size=None,
+                     sequence_len=2000, vec_labels=True, **kwargs):
+    logging.info('Reading TXT file (%s)' % path)
+    f = open(path, 'rt')
+    lines = [l[:-1] for l in f.readlines()]
+
+    logging.info('Tokenizing')

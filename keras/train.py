@@ -2,7 +2,7 @@ import gc
 import os
 import sys
 
-from utils.data_utils import get_loader
+from utils.data_utils import *
 from utils.commons import *
 from lstm.enc_dec import LSTMEncDec
 from settings_enc_dec import *
@@ -20,10 +20,12 @@ if switch:
     DOC_COUNT = DATA_SIZE
 
 # Get training and test data
-X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(vocabulary_size=VOCABULARY_SIZE,
-                                                                            sample_size=DOC_COUNT,
-                                                                            sequence_len=SEQUENCE_LENGTH,
-                                                                            vec_labels=(OUTPUT_TYPE == 0))
+word_to_index, index_to_word, word_vec = load_embedding(VOCABULARY_SIZE,
+                                                        embed_path=EMBEDDING_PATH,
+                                                        embed_type=EMBEDDING_TYPE)
+X, y, samples, output_mask = loader(sample_size=DOC_COUNT,
+                                    sequence_len=SEQUENCE_LENGTH,
+                                    vec_labels=(OUTPUT_TYPE == 0))
 X_val = X[:VAL_SPLIT]
 X_train = X[VAL_SPLIT:]
 y_val = y[:VAL_SPLIT]
