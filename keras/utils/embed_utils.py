@@ -37,7 +37,10 @@ class EmbeddingLoader(object):
                     tokens.remove('')
 
                 dct[word] = i
-                vectors.extend(float(x) for x in entries)
+                try:
+                    vectors.extend(float(x) for x in entries)
+                except ValueError:
+                    pass
 
         # Infer word vectors dimensions.
         no_components = len(entries)
