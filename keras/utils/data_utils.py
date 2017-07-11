@@ -20,7 +20,8 @@ def get_loader(dataset):
         'yahoo': (load_data_yahoo, True),
         'southpark': (load_data_southpark, True),
         'cornell': (load_data_cornell, True),
-        'songs': (load_data_lyrics, False)
+        'songs': (load_data_lyrics, False),
+        'vnnews': (load_data_vnnews, False)
     }
 
     try:
@@ -368,5 +369,19 @@ def load_data_vnnews(embed_layer, word_to_index, index_to_word,
     logging.info('Reading TXT file (%s)' % path)
     f = open(path, 'rt')
     lines = [l[:-1] for l in f.readlines()]
+    samples = []
 
+    if sample_size is not None:
+        samples = lines[:sample_size]
+        lines = lines[sample_size:]
+
+    raw_x = []
     logging.info('Tokenizing')
+    for line in lines:
+        raw_x.append(nltk.word_tokenize(line.lower().strip()))
+
+    raw_x, raw_y = replace_unknown(raw_x, raw_x, word_to_index)
+    X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
+                                                  word_to_index, vec_labels)
+
+    return X_train, y_train, samples, output_mask

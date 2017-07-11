@@ -1,5 +1,7 @@
 import pickle
 import sys
+
+import logging
 from keras.callbacks import *
 from keras.layers import Dense, TimeDistributed
 from keras.layers.embeddings import Embedding
@@ -62,7 +64,7 @@ class LSTMLangModel:
             self.model.fit_generator(
                 generator(Xtrain, ytrain, self.embed.get_weights()[0], train_mask, nb_class, total_len, batch_size),
                 steps_per_epoch=total_len / batch_size, epochs=nb_epoch, callbacks=[callback, logger],
-                verbose=1, max_q_size=1,workers=1, validation_steps=Xval.shape[0] / batch_size,
+                verbose=1, max_q_size=1, workers=1, validation_steps=Xval.shape[0] / batch_size,
                 validation_data=generator(Xval, yval, self.embed.get_weights()[0], val_mask, nb_class, Xval.shape[0],
                                           batch_size))
 
@@ -98,7 +100,7 @@ class LSTMLangModel:
         pickle.dump(config, open(f2, 'wb'), pickle.HIGHEST_PROTOCOL)
         np.savez(f3, wit=self.word_to_index, itw=self.index_to_word,
                  wv=self.word_vec)
-        print('Saved model to %s' % self.directory)
+        logging.info('Saved model to %s' % self.directory)
 
     @staticmethod
     def load(directory):

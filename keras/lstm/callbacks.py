@@ -28,5 +28,4 @@ class LangModelCallback(Callback):
         self.lang_model = lang_model
 
     def on_epoch_end(self, epoch, logs={}):
-        print()
         self.lang_model.save()
