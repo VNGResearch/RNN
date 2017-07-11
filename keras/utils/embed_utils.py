@@ -29,22 +29,19 @@ class EmbeddingLoader(object):
         entries = []
         with open(filename, 'rt', encoding='utf-8') as savefile:
             lines = savefile.readlines()
-            for i, line in enumerate(lines[skiplines:]):
+            for i, line in enumerate(lines[skiplines:-1]):
                 tokens = line[:-1].split(' ')
-                word = tokens[0]
-                entries = tokens[1:]
-                if '' in tokens:
+                while '' in tokens:
                     tokens.remove('')
-
+                entries = tokens[1:]
+                word = tokens[0]
+                vectors.extend(float(x) for x in entries)
                 dct[word] = i
-                try:
-                    vectors.extend(float(x) for x in entries)
-                except ValueError:
-                    pass
 
         # Infer word vectors dimensions.
         no_components = len(entries)
         no_vectors = len(dct)
+        assert no_components == 300
 
         # Set up the model instance.
         instance = EmbeddingLoader()

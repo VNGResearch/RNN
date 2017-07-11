@@ -378,7 +378,7 @@ def load_data_vnnews(embed_layer, word_to_index, index_to_word,
     raw_x = []
     logging.info('Tokenizing')
     for line in lines:
-        raw_x.append(nltk.word_tokenize(line.lower().strip()))
+        raw_x.append(nltk.word_tokenize(line.lower().strip())[:sequence_len])
 
     raw_x, raw_y = replace_unknown(raw_x, raw_x, word_to_index)
     X_train, y_train, output_mask = generate_data(raw_x, raw_y, sequence_len, embed_layer,
