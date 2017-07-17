@@ -7,6 +7,7 @@ DATA_SIZE = None  # Number of conversations to extract from yahoo, cornell or so
 DOC_COUNT = None  # Number of documents to extract from opensub or shakespeare dataset
 VAL_SPLIT = 100  # Number of validation samples to be taken from training set
 BATCH_SIZE = 100
+DROPOUT = 0.3
 DATASET = 'vnnews'
 
 # Word Embdedding settings

@@ -35,7 +35,7 @@ del X, y
 # Initialize model
 logging.info('Creating model...')
 model = LSTMLangModel(word_vec, word_to_index, index_to_word, learning_rate=LEARNING_RATE, sequence_len=SEQUENCE_LENGTH,
-                      directory=LM_DIRECTORY, outputs=OUTPUTS)
+                      directory=LM_DIRECTORY, outputs=OUTPUTS, dropout=DROPOUT)
 
 # Start training
 logging.info('Starting training...')

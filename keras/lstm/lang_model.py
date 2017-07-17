@@ -9,7 +9,6 @@ from keras.layers.recurrent import LSTM
 from keras.models import Sequential
 from keras.optimizers import RMSprop
 
-import lstm.enc_dec
 import lstm.tokens as tokens
 from lstm.callbacks import LangModelCallback
 from utils import commons
@@ -17,14 +16,15 @@ from utils import commons
 
 class LSTMLangModel:
     def __init__(self, word_vec, word_to_index, index_to_word, weight_file=None,
-                 learning_rate=0.001, sequence_len=2000, directory='./language_model',
-                 outputs=(32,)):
+                 learning_rate=0.001, sequence_len=2000, directory='./models/LM_debug',
+                 dropout=0.0, outputs=(32,)):
         self.word_vec = word_vec
         self.word_to_index = word_to_index
         self.index_to_word = index_to_word
         self.sequence_len = sequence_len
         self.directory = directory
         self.outputs = outputs
+        self.dropout = dropout
 
         self.model = Sequential()
         self.embed = Embedding(input_dim=np.size(word_vec, 0), output_dim=np.size(word_vec, 1),
@@ -32,7 +32,7 @@ class LSTMLangModel:
                                input_shape=(self.sequence_len,))
         self.model.add(self.embed)
         for lo in outputs:
-            self.model.add(LSTM(lo, implementation=1, return_sequences=True))
+            self.model.add(LSTM(lo, implementation=1, return_sequences=True, dropout=self.dropout))
         self.model.add(TimeDistributed(Dense(len(self.index_to_word), activation='softmax')))
 
         if weight_file is not None:
@@ -41,13 +41,12 @@ class LSTMLangModel:
         self.model.compile(RMSprop(lr=learning_rate), 'categorical_crossentropy',
                            sample_weight_mode='temporal', metrics=[])
 
-    """
-    Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
-    See utils.generate_batch().
-    """
-
     def train(self, Xtrain, ytrain, nb_epoch, Xval=None, yval=None, train_mask=None, val_mask=None,
               batch_size=10):
+        """
+            Uses a generator to decompress labels from integers to hot-coded vectors batch-by-batch to save memory.
+            See utils.commons.generate_batch().
+        """
         callback = LangModelCallback(self)
         logger = CSVLogger(self.directory + '/epochs.csv')
         nb_class = len(self.index_to_word)
@@ -95,7 +94,8 @@ class LSTMLangModel:
         config = {
             'seq_len': self.sequence_len,
             'word_vec_dim': np.shape(self.word_vec),
-            'outputs': self.outputs
+            'outputs': self.outputs,
+            'dropout': self.dropout
         }
         pickle.dump(config, open(f2, 'wb'), pickle.HIGHEST_PROTOCOL)
         np.savez(f3, wit=self.word_to_index, itw=self.index_to_word,
@@ -108,7 +108,7 @@ class LSTMLangModel:
         f2 = directory + '/config.pkl'
         f3 = directory + '/dictionary.npz'
 
-        print('Loading model from %s...' % directory)
+        logging.info('Loading model from %s...' % directory)
         try:
             config = pickle.load(open(f2, 'rb'))
 
@@ -116,10 +116,10 @@ class LSTMLangModel:
             word_to_index, index_to_word, word_vec = npz_file["wit"].reshape(1)[0], npz_file["itw"], npz_file[
                 "wv"].reshape(config['word_vec_dim'])
 
-            print('Done.')
+            logging.info('Done.')
             return LSTMLangModel(word_vec, word_to_index, index_to_word, weight_file=f1,
-                                 sequence_len=config['seq_len'], directory=directory,
-                                 outputs=config['outputs'])
+                                 sequence_len=config.get('seq_len', 2000), directory=directory,
+                                 outputs=config.get('outputs', (32,)), dropout=config.get('dropout', 0.0))
         except FileNotFoundError:
             print('One or more model files cannot be found. Terminating...')
             sys.exit()
