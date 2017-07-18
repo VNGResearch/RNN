@@ -1,8 +1,11 @@
 from argparse import ArgumentParser
 
-from lstm.enc_dec import *
-from settings_enc_dec import *
+from lstm.lang_model import *
+from settings_lm import *
 from utils import *
+
+__LOGGER = logging.getLogger()
+__LOGGER.level = logging.INFO
 
 
 def parse_args():
@@ -14,7 +17,7 @@ def parse_args():
     parser.add_argument('-d', '--dataset', dest='ds', required=False, default='opensub',
                         help='''The training dataset to be used. 
                         Defaults to the OpenSubtitle dataset. 
-                        Values: opensub, shakespeare, yahoo, southpark, cornell''')
+                        Values: opensub, shakespeare, yahoo, southpark, cornell, vnnews''')
     arg = parser.parse_args()
     return arg
 
@@ -25,18 +28,17 @@ loader, switch = get_loader(args.ds)
 if switch:
     DOC_COUNT = DATA_SIZE
 
-print('Loading model...')
-model = commons.load_model(args.md, LSTMEncDec)
+logging.info('Creating model...')
+model = LSTMLangModel.load(args.md)
 
-X, y, word_to_index, index_to_word, word_vec, samples, output_mask = loader(vocabulary_size=len(model.index_to_word),
-                                                                            sample_size=DOC_COUNT,
-                                                                            sequence_len=model.sequence_len,
-                                                                            vec_labels=(model.out_type == 0))
-# Get queries
-with open(QUERY_FILE, 'rt') as f:
-    queries = [q.rstrip() for q in f.readlines()]
-    f.close()
-queries.extend(samples)
+word_vec, word_to_index, index_to_word = load_embedding(VOCABULARY_SIZE,
+                                                        embed_path=EMBEDDING_PATH,
+                                                        embed_type=EMBEDDING_TYPE)
+X, y, samples, output_mask = loader(word_vec, word_to_index, index_to_word,
+                                    sample_size=DOC_COUNT,
+                                    sequence_len=SEQUENCE_LENGTH,
+                                    vec_labels=False)
+y, output_mask = generate_lm_labels(X, word_to_index)
 
 X_val = X[:VAL_SPLIT]
 X_train = X[VAL_SPLIT:]
@@ -44,5 +46,5 @@ y_val = y[:VAL_SPLIT]
 y_train = y[VAL_SPLIT:]
 del X, y
 
-model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, queries=queries, Xval=X_val, yval=y_val,
+model.train(X_train, y_train, N_EPOCH, batch_size=BATCH_SIZE, Xval=X_val, yval=y_val,
             train_mask=output_mask[VAL_SPLIT:], val_mask=output_mask[:VAL_SPLIT])

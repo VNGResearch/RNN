@@ -20,8 +20,8 @@ def get_loader(dataset):
         'yahoo': (load_data_yahoo, True),
         'southpark': (load_data_southpark, True),
         'cornell': (load_data_cornell, True),
-        'songs': (load_data_lyrics, False),
-        'vnnews': (load_data_vnnews, False)
+        'songs': (load_data_lyrics, True),
+        'vnnews': (load_data_vnnews, True)
     }
 
     try:
