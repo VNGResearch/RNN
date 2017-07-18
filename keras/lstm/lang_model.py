@@ -67,7 +67,10 @@ class LSTMLangModel:
                 validation_data=generator(Xval, yval, self.embed.get_weights()[0], val_mask, nb_class, Xval.shape[0],
                                           batch_size))
 
-    def predict(self, query_tokens):
+    def predict(self, query_tokens, top=None):
+        if top is None:
+            top = np.size(self.word_vec, 0)
+
         out_pos = len(query_tokens) - 1
         indices = [self.word_to_index[w] if w in self.word_to_index
                    else self.word_to_index[tokens.UNKNOWN_TOKEN] for w in query_tokens]
@@ -75,7 +78,14 @@ class LSTMLangModel:
         indices = np.asarray(indices, dtype=np.int32).reshape((1, self.sequence_len))
 
         output = self.model.predict(indices, batch_size=1, verbose=0)
-        return output[0][out_pos]
+        dist = np.asarray(output[0][out_pos])
+
+        index_rank = np.flip(np.argsort(dist)[-top:], 0)
+        result = []
+        for idx in index_rank:
+            result.append((self.index_to_word[idx], dist[idx]))
+
+        return result
 
     def log(self, string='', out=True):
         f = open(self.directory + '/log.txt', mode='at')
@@ -100,7 +110,7 @@ class LSTMLangModel:
         pickle.dump(config, open(f2, 'wb'), pickle.HIGHEST_PROTOCOL)
         np.savez(f3, wit=self.word_to_index, itw=self.index_to_word,
                  wv=self.word_vec)
-        logging.info('Saved model to %s' % self.directory)
+        logging.info('\nSaved model to %s' % self.directory)
 
     @staticmethod
     def load(directory):
