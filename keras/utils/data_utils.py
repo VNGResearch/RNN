@@ -129,8 +129,10 @@ def generate_lm_labels(x, word_to_index):
             if x[i][j] == word_to_index[MASK_TOKEN]:
                 y[i][j - 1] = word_to_index[SENTENCE_END_TOKEN]
                 break
+            if j == np.size(y, 1) - 1:
+                y[i][j] = word_to_index[SENTENCE_END_TOKEN]
 
-    msk_func = np.vectorize(lambda a: 0 if a == word_to_index[MASK_TOKEN] else 1)
+    msk_func = np.vectorize(lambda a: 0 if a in (word_to_index[MASK_TOKEN], word_to_index[UNKNOWN_TOKEN]) else 1)
     output_mask = msk_func(y)
     return y, output_mask
 

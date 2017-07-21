@@ -24,6 +24,7 @@ X, y, samples, output_mask = loader(word_vec, word_to_index, index_to_word,
                                     sample_size=DOC_COUNT,
                                     sequence_len=SEQUENCE_LENGTH,
                                     vec_labels=False)
+del y, output_mask
 y, output_mask = generate_lm_labels(X, word_to_index)
 
 X_val = X[:VAL_SPLIT]
